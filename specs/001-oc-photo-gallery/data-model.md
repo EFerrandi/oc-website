@@ -126,14 +126,17 @@ PK `(character_id, position)`.
 | `id` | INTEGER | PK |
 | `file_name` | TEXT | NOT NULL, unique — generated, never the uploaded name |
 | `mime_type` | TEXT | NOT NULL, one of `image/jpeg`, `image/png`, `image/webp`, `image/gif` |
-| `byte_size` | INTEGER | NOT NULL |
+| `byte_size` | INTEGER | NOT NULL — size of the original |
+| `preview_file_name` | TEXT | NOT NULL, unique — generated preview copy (FR-068) |
+| `width`, `height` | INTEGER | NOT NULL — original pixel dimensions, used to reserve layout space |
 | `alt_text` | TEXT | NOT NULL, non-empty (SC-006) |
 | `short_description` | TEXT | NULL allowed |
 | `artist_id` | INTEGER | NOT NULL, FK → `artist(id)` `ON DELETE RESTRICT` (FR-042) |
 | `is_nsfw` | INTEGER | NOT NULL, `CHECK (IN (0,1))`, default `0` |
 | `created_at`, `updated_at` | TEXT | NOT NULL |
 
-- Files live at `data/uploads/<file_name>` and are served **only** through `GET /media/:id` so the rating check applies to the bytes (research R-006).
+- Files live at `data/uploads/<file_name>` with previews at `data/uploads/previews/<preview_file_name>`, and both are served **only** through the `/media/:id` routes so the rating check applies to the bytes of either variant (research R-006, R-017; FR-070).
+- `preview_file_name` is NOT NULL: FR-068 requires the preview to exist before the record is committed, so an image can never be stored without one. When the original is already within the preview cap it is copied rather than upscaled (FR-069), so this column is still populated.
 - `alt_text` is mandatory: SC-006 requires 100% coverage.
 
 ### `story`
@@ -196,6 +199,7 @@ Foreign keys and `CHECK` constraints cannot express these, so the service layer 
 | I-6 | `avatar_image_id` references an image linked to that same character | FR-026 |
 | I-7 | Character + first image are created atomically or not at all | FR-049, FR-050 |
 | I-8 | Deleting a character preserves images/stories still linked elsewhere | FR-029 |
+| I-9 | Every image row has a readable preview file on disk; the original and its preview are created and deleted together | FR-068, Edge Cases |
 
 I-8 requires a post-delete sweep within the same transaction: after the character's link rows cascade away, any image or story left with zero links is removed along with its file; anything still linked to another character is untouched.
 

@@ -28,6 +28,10 @@
 - Q: Should sins and virtues be one shared list or two separate lists? → A: One reusable list in which each entry is marked as either a sin or a virtue, displayed grouped by kind
 - Q: Must every character have at least one sin or virtue? → A: No — traits are optional; a character may have zero, one, or many
 - Q: Should visitors be able to filter the gallery by sins and virtues? → A: Yes — a third filter that combines with the existing tag and gender filters
+- Q: Is there a limit on the size of an uploaded image? → A: No practical limit for artwork, but a high safety ceiling (100 MB) rejects clearly mistaken files
+- Q: What does the visitor see by default, and what happens on click? → A: A reduced-size preview by default; clicking it opens the image at its original size
+- Q: Is the enlarged view an overlay or its own page? → A: Each preview is a real link to a full-size view, enhanced into an on-page overlay when JavaScript is available
+- Q: Is the reduced-size preview a separate smaller file or the original scaled down by the browser? → A: A genuinely smaller copy generated when the image is uploaded, so gallery pages never download originals
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -175,7 +179,12 @@ the admin signs in through an admin login entry point placed immediately to the 
 - An image or story is linked to characters and then unlinked from all of them — it must not become orphaned and unreachable for the admin to fix or delete.
 - A relationship is defined between a character and itself, or the same pair is entered twice — both must be rejected with a clear message.
 - A tag is removed from the last character using it — it must no longer appear in the home page filter list.
-- An uploaded file is not a supported image type or exceeds the size limit — upload is rejected with a clear message and no partial record is stored.
+- An uploaded file is not a supported image type, or is so large it exceeds the safety ceiling — upload is rejected with a clear message and no partial record is stored.
+- An uploaded image is already smaller than the preview dimensions — the preview must reuse it as-is rather than enlarging it, and clicking must still open the original.
+- An image's preview copy is missing or failed to generate — the image must not render as broken; the admin must be able to see that the preview needs regenerating.
+- A visitor with JavaScript disabled clicks a preview — the full-size view must still open as an ordinary page rather than doing nothing.
+- A visitor opens the overlay and presses Escape or activates the close control — the overlay must close and keyboard focus must return to the preview that opened it.
+- A visitor on a phone opens a very large original — the full-size view must remain pannable and must not break the page layout.
 - A designer or artist link is missing or malformed — the name must still display without a broken link.
 - Repeated failed admin sign-in attempts — further attempts must be throttled.
 - An admin session is left idle for a long time — it must expire and require signing in again.
@@ -198,6 +207,10 @@ the admin signs in through an admin login entry point placed immediately to the 
 - **FR-036**: System MUST provide an artists page that lists every image visible at the current rating level, grouped under the name of the artist who created it, with each artist appearing exactly once.
 - **FR-037**: System MUST omit an artist from the artists page entirely when none of their images are visible at the current rating level.
 - **FR-038**: System MUST allow the visitor to reach a linked character's detail page from each image shown on the artists page.
+- **FR-063**: System MUST display every image as a reduced-size preview by default wherever images appear — gallery avatars, character detail pages, and the artists page — and MUST NOT transfer the original file to render a preview.
+- **FR-064**: System MUST make every preview activate a full-size view of that image at its original dimensions.
+- **FR-065**: System MUST implement each preview as an ordinary link to a standalone full-size view so that it works with JavaScript unavailable, and MUST present that full-size view as an on-page overlay instead when JavaScript is available.
+- **FR-066**: System MUST allow the full-size overlay to be dismissed by both a visible close control and the Escape key, and MUST return keyboard focus to the preview that opened it.
 
 #### Content rating and gating
 
@@ -206,6 +219,7 @@ the admin signs in through an admin login entry point placed immediately to the 
 - **FR-010**: System MUST show both SFW and NSFW images, stories, and relationships while the NSFW checkbox is checked.
 - **FR-011**: System MUST persist the visitor's NSFW choice across page navigation and reloads within the same browser session, without requiring an account.
 - **FR-012**: System MUST refuse to serve NSFW items (including direct requests for an NSFW image file or story address) when the requester has not opted in, returning a "not available" response instead.
+- **FR-070**: System MUST apply the same NSFW gating to an image's preview copy, its full-size original, and its standalone full-size view, so that opting out makes every variant equally unavailable.
 - **FR-013**: System MUST hide the NSFW relationship card entirely when the visitor has not opted in.
 - **FR-014**: System MUST substitute a neutral placeholder avatar on a gallery card when the character has no image visible at the current rating level, and MUST still list that character in the gallery rather than hiding it.
 - **FR-052**: System MUST keep a character's detail page reachable and display its non-media information (name, gender, description, job titles, tags, terms of use, permissions, designer) even when none of its images or stories are visible at the current rating level.
@@ -248,7 +262,10 @@ the admin signs in through an admin login entry point placed immediately to the 
 - **FR-024**: Admin MUST be able to create, edit, and delete relationships between two distinct characters, supplying a relationship label and an SFW/NSFW rating.
 - **FR-025**: System MUST allow a single image or story to be linked to multiple characters and display it on every linked character's detail page.
 - **FR-026**: Admin MUST be able to designate which image serves as a character's gallery avatar.
-- **FR-027**: System MUST validate admin submissions, rejecting entries with missing required fields, malformed links, unsupported file types, or oversized uploads, and MUST report which field failed without creating a partial record.
+- **FR-027**: System MUST validate admin submissions, rejecting entries with missing required fields, malformed links, unsupported file types, or files above the upload safety ceiling, and MUST report which field failed without creating a partial record.
+- **FR-067**: System MUST accept uploaded images of any dimensions and of any file size up to a high safety ceiling of 100 MB, imposing no minimum size, and MUST reject a file above that ceiling with a message stating the actual and maximum size.
+- **FR-068**: System MUST generate and store a reduced-size preview copy of every uploaded image at upload time, keeping the original file unmodified, and MUST report the failure without saving a partial record if the preview cannot be generated.
+- **FR-069**: System MUST reuse the original as its own preview when the original is already no larger than the preview dimensions, rather than enlarging it.
 - **FR-028**: System MUST reject self-referencing relationships and duplicate relationships for the same character pair and label.
 - **FR-029**: System MUST preserve shared images and stories for their remaining linked characters when one linked character is deleted.
 - **FR-053**: System MUST require an explicit confirmation naming the item before deleting any character, image, story, relationship, tag, trait, gender value, artist, or designer, and MUST treat confirmed deletions as permanent.
@@ -260,13 +277,13 @@ the admin signs in through an admin login entry point placed immediately to the 
 #### Quality and accessibility
 
 - **FR-033**: System MUST present a responsive layout that adapts to phone, tablet, and desktop screen widths on every page, including the gallery, character detail pages, the relationship page, the artists page, and all admin screens.
-- **FR-034**: System MUST provide accessible names, keyboard operability, and visible focus for the NSFW checkbox, the tag, gender, and trait filters, the gallery cards, and the admin sign-in entry point.
+- **FR-034**: System MUST provide accessible names, keyboard operability, and visible focus for the NSFW checkbox, the tag, gender, and trait filters, the gallery cards, the image previews and their full-size overlay, and the admin sign-in entry point.
 - **FR-035**: System MUST preserve the visitor's tag filter, gender filter, trait filter, and NSFW selections when returning to the gallery from a character detail page.
 
 ### Key Entities
 
 - **Character (OC)**: An original character. Required attributes: name, gender, short description, at least one job title, terms of use text, permission flags for regifting, retrading and reselling, a designer, at least one tag, and at least one linked image (one of which is the designated avatar). Optional: designer website link, any number of traits (sins or virtues). Related to tags, traits, images, stories, and relationships.
-- **Image**: A picture asset. Required attributes: file, alt text, an artist, SFW/NSFW rating, and at least one linked character. Optional: short description, artist website link.
+- **Image**: A picture asset stored as an unmodified original plus a generated reduced-size preview copy. Required attributes: original file, preview file, alt text, an artist, SFW/NSFW rating, and at least one linked character. Optional: short description, artist website link.
 - **Story**: A written piece. Attributes: title, body text, SFW/NSFW rating. Linked to one or more characters.
 - **Tag**: A reusable label applied to characters and used to filter the gallery. Attributes: name.
 - **Trait (Sin or Virtue)**: A reusable moral characteristic maintained by the admin in a managed list and assignable to any number of characters, used both for display and as a gallery filter. Attributes: name, kind (sin or virtue). Optional on a character.
@@ -292,12 +309,17 @@ the admin signs in through an admin login entry point placed immediately to the 
 - **SC-010**: 100% of published characters carry at least one image, at least one tag, a designer, all three permission values, and terms of use, and 100% of published images carry an artist name.
 - **SC-011**: The artists page lists every visible image exactly once, under exactly one artist group.
 - **SC-012**: 100% of traits assigned to a character appear on that character's detail page under the correct "Sins" or "Virtues" heading, and every trait in use is selectable in the gallery filter.
+- **SC-013**: Rendering the home page gallery transfers only preview copies, so the bytes downloaded for a gallery of 100 characters stay independent of how large the originals are.
+- **SC-014**: 100% of previews open the corresponding original at full dimensions, both with JavaScript enabled and with JavaScript disabled, and the overlay is dismissible by keyboard alone.
 
 ## Assumptions
 
 - The site has a single admin; no multi-user roles, registration, or public accounts are needed.
 - Visitors browse anonymously; no visitor account, comment, or rating features are in scope.
 - The NSFW opt-in is an honour-based self-declaration; no age verification or identity check is in scope.
+- The 100 MB upload ceiling exists only to catch clearly mistaken files; real artwork is expected to sit far below it, so the admin should never encounter the limit in normal use.
+- A single preview size is sufficient for every context where previews appear; per-breakpoint image variants are not required.
+- Preview copies are regenerable from the stored originals, so losing a preview is recoverable and does not require re-uploading the artwork.
 - The NSFW preference is stored client-side per browser session and is not tied to any persistent visitor identity.
 - All published content is public; there are no per-character or per-visitor visibility rules beyond the SFW/NSFW split.
 - "Gender" values are drawn from a reusable list the admin maintains, so any value can be added while keeping the gallery filter free of near-duplicates.

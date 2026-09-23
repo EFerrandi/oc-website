@@ -56,9 +56,11 @@ Character detail (FR-003–FR-006, FR-052).
 
 ---
 
-## `GET /media/:imageId`
+## `GET /media/:imageId` and `GET /media/:imageId/full`
 
-Image bytes. **This is the only path by which uploaded files are reachable** — the upload directory is never served statically (FR-012, research R-006).
+Image bytes. **These are the only paths by which uploaded files are reachable** — the upload directory is never served statically (FR-012, research R-006).
+
+`GET /media/:imageId` returns the **reduced-size preview** and is what every gallery, detail, and artists page renders (FR-063). `GET /media/:imageId/full` returns the **unmodified original** and backs the enlarged view (FR-064). Both apply the identical rating check, so opting out makes every variant equally unavailable (FR-070).
 
 | Condition | Status |
 |---|---|
@@ -69,7 +71,21 @@ Image bytes. **This is the only path by which uploaded files are reachable** —
 
 The NSFW-without-opt-in case returns `404`, not `403`: a `403` would confirm that a specific NSFW image exists at that id.
 
-**Headers**: `Content-Type` from the stored MIME type; `Cache-Control: private, no-store` for NSFW images so a shared or proxy cache cannot serve them to a visitor who has not opted in.
+**Headers**: `Content-Type` from the stored MIME type (`image/webp` for previews); `Cache-Control: private, no-store` for NSFW images so a shared or proxy cache cannot serve them to a visitor who has not opted in.
+
+---
+
+## `GET /images/:imageId`
+
+The standalone full-size view — the `href` every preview anchor points at, so click-to-enlarge works with JavaScript unavailable (FR-065). Renders the original via `/media/:imageId/full` at its natural dimensions, plus alt text, short description, artist credit, and links back to each linked character.
+
+| Condition | Status |
+|---|---|
+| Image exists and is visible at the current rating level | `200` + HTML |
+| Image exists, is NSFW, visitor has **not** opted in | `404` |
+| Image does not exist | `404` |
+
+When JavaScript is available the anchor's default navigation is suppressed and the original is shown in an overlay dialog instead; the overlay closes on Escape or its close control and returns focus to the originating preview (FR-066).
 
 ---
 

@@ -27,7 +27,7 @@ npm run dev
 
 Site at `http://localhost:3000`, admin at `http://localhost:3000/admin/login`.
 
-`.env` keys: `PORT`, `SESSION_SECRET`, `ADMIN_PASSWORD_HASH`, `DATABASE_PATH`, `UPLOAD_DIR`, `MAX_UPLOAD_BYTES`.
+`.env` keys: `PORT`, `SESSION_SECRET`, `ADMIN_PASSWORD_HASH`, `DATABASE_PATH`, `UPLOAD_DIR`, `PREVIEW_DIR`, `PREVIEW_MAX_EDGE` (default `800`), `MAX_UPLOAD_BYTES` (default `104857600` — the 100 MB safety ceiling, FR-067).
 
 > `.env`, `data/oc.db*`, and `data/uploads/` must all be git-ignored. The password hash and session secret are never committed (research R-008).
 
@@ -90,7 +90,7 @@ Each maps to acceptance scenarios and success criteria in [`spec.md`](./spec.md)
 6. Pick a combination matching nothing → empty-state message plus a working clear-filters control.
 7. Confirm every offered filter option yields at least one result — no dead options (FR-016, FR-040, FR-056).
 
-### V-5 — Character detail (FR-003–FR-006, FR-052)
+### V-5 — Character detail (FR-003–FR-006, FR-052, SC-002)
 
 Open a character and confirm: name, gender, description, all job titles, tags, **traits under separate Sins and Virtues headings**, terms of use, the three permissions shown explicitly as allowed / not allowed, and the designer credit.
 
@@ -172,13 +172,41 @@ Steps 4 and 5 must behave *differently*. If deleting an in-use trait is blocked,
 
 ---
 
+### V-14 — Previews and click-to-enlarge (FR-063–FR-070, SC-013, SC-014)
+
+1. Upload an image whose original is well above the preview cap (e.g. 4000px wide) and confirm it is accepted without a size complaint (FR-067).
+2. Load `/` and inspect the network panel.
+
+**Expect**: every image request goes to `/media/:id` and returns the small WebP preview; **no** request to `/media/:id/full` occurs, so the page weight is independent of original size (FR-063, SC-013).
+
+3. Click the image on the character detail page.
+
+**Expect**: an overlay opens showing the original at full dimensions. Press **Escape**.
+
+**Expect**: the overlay closes and keyboard focus returns to the preview that opened it (FR-066).
+
+4. Disable JavaScript and click the same preview.
+
+**Expect**: the browser navigates to `/images/:id`, which shows the original at full size (FR-065, SC-014).
+
+5. Upload an image *smaller* than the preview cap and confirm it is not upscaled — preview and original render at the same dimensions (FR-069).
+6. With NSFW **off**, request an NSFW image's `/media/:id`, `/media/:id/full`, and `/images/:id` directly.
+
+**Expect**: all three return `404` (FR-070).
+
+7. Attempt to upload a file larger than 100 MB.
+
+**Expect**: rejection naming the actual and maximum size, with no record created (FR-027).
+
+---
+
 ## Validation checklist
 
 | Scenario | Covers |
 |---|---|
 | V-1, V-2, V-3 | NSFW gating — SC-001, FR-008–FR-014 |
 | V-4 | Filtering — FR-015–FR-018, FR-039, FR-054–FR-056, SC-004 |
-| V-5 | Detail page — FR-003–FR-006, FR-052 |
+| V-5 | Detail page — FR-003–FR-006, FR-052, SC-002 |
 | V-6 | Artists page — FR-036–FR-038, SC-011 |
 | V-7 | Access control — FR-020, FR-031, SC-007 |
 | V-8 | Mandatory fields & atomic creation — FR-041, FR-049, FR-050, SC-005, SC-010 |
@@ -187,3 +215,4 @@ Steps 4 and 5 must behave *differently*. If deleting an in-use trait is blocked,
 | V-11 | Relationships — FR-007, FR-013, FR-024, FR-028 |
 | V-12 | Delete safety — FR-029, FR-053 |
 | V-13 | Responsive & accessible — FR-033–FR-035, SC-006, SC-009 |
+| V-14 | Previews & click-to-enlarge — FR-063–FR-070, SC-013, SC-014 |

@@ -141,11 +141,21 @@ All Technical Context unknowns are resolved below. No `NEEDS CLARIFICATION` mark
 
 ## R-010: Upload handling and validation
 
-**Decision**: `multer` with disk storage, a 10 MB per-file limit, and an accept list of `image/jpeg`, `image/png`, `image/webp`, `image/gif`. The declared MIME type is confirmed against the file's magic bytes after upload; rejected files are deleted before any database write. Form fields are validated with `zod`.
+**Decision**: `multer` with disk storage, a 100 MB per-file safety ceiling (FR-067), and an accept list of `image/jpeg`, `image/png`, `image/webp`, `image/gif`. The declared MIME type is confirmed against the file's magic bytes after upload; rejected files are deleted before any database write. Form fields are validated with `zod`.
 
-**Rationale**: FR-027 requires rejecting unsupported types and oversized uploads *without creating a partial record*, so validation must complete before the transaction opens and any temporary file must be cleaned up on failure. A browser-supplied `Content-Type` is trivially forged, hence the magic-byte confirmation. `zod` gives one schema per form that yields both the parsed values and the field-level error messages FR-027 asks for.
+**Rationale**: FR-067 removes any practical size limit on artwork, so the ceiling exists purely to stop a mis-selected file from filling the disk — it is not a product constraint and the admin should never hit it. Because originals are now effectively unbounded, previews become mandatory rather than optional (see R-017). FR-027 requires rejecting unsupported types and over-ceiling uploads *without creating a partial record*, so validation must complete before the transaction opens and any temporary file must be cleaned up on failure. A browser-supplied `Content-Type` is trivially forged, hence the magic-byte confirmation. `zod` gives one schema per form that yields both the parsed values and the field-level error messages FR-027 asks for.
 
-**Alternatives considered**: `busboy` directly (more plumbing for no gain); trusting `Content-Type` alone (insufficient); image re-encoding via `sharp` (a heavy native dependency; thumbnail generation is deferred and noted below).
+**Alternatives considered**: `busboy` directly (more plumbing for no gain); trusting `Content-Type` alone (insufficient); no ceiling whatsoever (leaves the server with no defence against an accidental multi-gigabyte upload and no message to show the admin).
+
+---
+
+## R-017: Preview generation and click-to-enlarge
+
+**Decision**: Generate one reduced-size preview per image at upload time with `sharp`, capped at 800px on the longest edge and re-encoded to WebP, written to `data/uploads/previews/<file_name>.webp`. Originals are stored byte-identical. Both variants are served through the same gated route family: `GET /media/:id` returns the preview, `GET /media/:id/full` returns the original. Templates always render the preview inside an anchor pointing at a standalone full-size page; a ~40-line progressive-enhancement script intercepts the click and shows the original in an overlay dialog.
+
+**Rationale**: With originals unbounded (R-010), rendering a gallery from originals would make SC-003's 3-second budget unachievable and SC-013 explicitly forbids it — so the derivative pipeline that was previously deferred is now required. Generating at upload rather than on request keeps request handling free of CPU-bound work and means a failed generation surfaces immediately to the admin (FR-068) instead of as a broken image later. `sharp` ships prebuilt binaries for Windows and Linux, so despite being a native module it needs no local toolchain. When the original is already within the cap, it is copied rather than upscaled (FR-069). Building on an anchor rather than a bare click handler satisfies FR-065's no-JavaScript requirement for free, and gives the overlay a real focus target to restore on dismiss (FR-066). Keeping both variants behind `/media/` preserves the single gating chokepoint so FR-070 cannot be bypassed by requesting the other variant.
+
+**Alternatives considered**: CSS-constrained originals (violates SC-013 and SC-003); on-demand resizing with a cache (adds cache invalidation and a cold-start cliff for no benefit at this scale); multiple `srcset` breakpoints (more storage and template complexity than a single-admin gallery needs — a single preview size is assumed sufficient); `jimp` as a pure-JS alternative (markedly slower and lower output quality on large originals); an overlay-only lightbox (breaks FR-065).
 
 ---
 
@@ -213,7 +223,8 @@ All Technical Context unknowns are resolved below. No `NEEDS CLARIFICATION` mark
 
 These are recorded so they are not mistaken for oversights:
 
-- **Thumbnail generation / responsive `srcset`.** Full-size images are served as uploaded. If SC-003 is missed with a realistic 1,000-image library, add `sharp` and a derivative pipeline behind the existing `/media/:id` route — the route boundary means no template changes.
+- **Multiple responsive `srcset` breakpoints.** One preview size is generated (R-017); per-breakpoint variants are assumed unnecessary for this gallery.
+- **Regenerating previews in bulk.** If the preview cap is ever changed, existing previews are not rebuilt automatically; a one-off script would be written then.
 - **Free-text search, pagination, and custom sort orders.** Out of scope per Assumptions.
 - **Browser-automation tests** for the responsive and keyboard criteria; these are verified manually against SC-006 and SC-009 for now.
 - **Localisation.** Out of scope per Assumptions.

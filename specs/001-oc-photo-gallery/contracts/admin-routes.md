@@ -35,6 +35,8 @@ Destroys the session and clears the cookie; `303` to `/`. Admin screens are inac
 
 ## Characters
 
+Full character create/edit/delete (FR-021).
+
 ### `GET /admin/characters`
 Lists all characters with edit and delete controls.
 
@@ -93,6 +95,8 @@ Requires `confirm_name` to match the character's name — an explicit confirmati
 
 ## Images
 
+Full image upload/edit/delete (FR-022).
+
 ### `GET /admin/images`, `GET /admin/images/new`, `GET /admin/images/:id/edit`
 List and form screens.
 
@@ -103,7 +107,8 @@ List and form screens.
 |---|---|
 | Valid | `303`; image appears on **every** linked character's detail page subject to rating (FR-025, SC-008) |
 | No artist selected | `422` naming the missing artist (FR-042) |
-| Unsupported type / oversized / magic-byte mismatch | `422`, temporary file deleted, no record created (FR-027) |
+| Unsupported type / above the 100 MB ceiling / magic-byte mismatch | `422`, temporary file deleted, no record created (FR-027, FR-067) |
+| Preview generation fails | `422`, original and any partial preview deleted, no record created (FR-068) |
 | No character linked | `422` |
 
 ### `POST /admin/images/:id`
