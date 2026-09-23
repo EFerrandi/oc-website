@@ -100,6 +100,7 @@ src/
 │   ├── requireAdmin.js
 │   ├── csrf.js                  # Session-bound synchroniser token
 │   ├── upload.js                # multer + magic-byte confirmation + sharp preview generation
+│   ├── logging.js               # structured request logging
 │   └── errors.js                # 404/422/500 handlers
 ├── routes/
 │   ├── public/                  # gallery, character, relationships, artists, media, image view, stories
@@ -107,6 +108,9 @@ src/
 ├── views/                       # Nunjucks: layout.njk, partials/, pages/, admin/
 ├── public/                      # Static: css/, js/ (progressive enhancement only), img/placeholder
 └── lib/                         # slug, url validation, name normalisation, date helpers
+
+scripts/
+└── set-admin-password.js        # prompts, derives the scrypt hash for .env
 
 tests/
 ├── contract/                    # Route contracts from contracts/*.md
