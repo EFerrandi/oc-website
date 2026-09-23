@@ -1,0 +1,37 @@
+{% extends "layout.njk" %}
+
+{% block title %}Characters — OC Gallery{% endblock %}
+
+{% block content %}
+  <h1>Characters</h1>
+
+  {% include "partials/filters.njk" %}
+
+  {% if characters.length %}
+    <ul class="gallery">
+      {% for c in characters %}
+        <li class="card">
+          <a href="/characters/{{ c.slug }}">
+            {% if c.avatar %}
+              <img class="card-thumb" src="/media/{{ c.avatar.id }}" alt="{{ c.avatar.altText }}" loading="lazy">
+            {% else %}
+              {# No image visible at this rating level — the character is still
+                 listed, with the neutral placeholder (FR-014). #}
+              <img class="card-thumb" src="/img/placeholder-avatar.svg" alt="No image available for {{ c.name }}">
+            {% endif %}
+
+            <div class="card-body">
+              <p class="card-name">{{ c.name }}</p>
+              {% if c.jobTitles.length %}
+                <p class="card-jobs">{{ c.jobTitles | join(" · ") }}</p>
+              {% endif %}
+            </div>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-state">No characters match the current filters.</p>
+    <p><a class="chip" href="/">Clear all filters</a></p>
+  {% endif %}
+{% endblock %}

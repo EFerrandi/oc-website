@@ -1,0 +1,62 @@
+{% extends "admin/layout.njk" %}
+
+{% block title %}Edit image — Admin{% endblock %}
+
+{% block admin %}
+  <h1>Edit image</h1>
+
+  <img class="card-thumb" src="/media/{{ image.id }}" alt="{{ image.altText }}" style="max-width:300px">
+  <p class="hint">{{ image.width }} × {{ image.height }} original</p>
+
+  <form method="post" action="/admin/images/{{ image.id }}" class="filters">
+    <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+
+    <div class="field">
+      <label for="alt_text">Alt text (required)</label>
+      <input type="text" id="alt_text" name="alt_text" value="{{ image.altText }}" required>
+    </div>
+
+    <div class="field">
+      <label for="artist_id">Artist (required)</label>
+      <select id="artist_id" name="artist_id" required>
+        {% for a in options.artists %}
+          <option value="{{ a.id }}" {% if image.artistId == a.id %}selected{% endif %}>{{ a.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="short_description">Short description (optional)</label>
+      <input type="text" id="short_description" name="short_description" value="{{ image.shortDescription or '' }}">
+    </div>
+
+    <fieldset class="field">
+      <legend>Characters (at least one required)</legend>
+      {% for c in options.characters %}
+        <label class="inline">
+          <input type="checkbox" name="character_id" value="{{ c.id }}"
+                 {% if c.id in image.characterIds %}checked{% endif %}>
+          {{ c.name }}
+        </label>
+      {% endfor %}
+    </fieldset>
+
+    <label class="inline">
+      <input type="checkbox" name="is_nsfw" value="1" {% if image.isNsfw == 1 %}checked{% endif %}>
+      This image is NSFW
+    </label>
+
+    <p><button type="submit">Save changes</button></p>
+  </form>
+
+  <h2>Delete</h2>
+  <form method="post" action="/admin/images/{{ image.id }}/delete" class="filters">
+    <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+    <div class="field">
+      <label for="confirm">Type <strong>delete</strong> to confirm</label>
+      <input type="text" id="confirm" name="confirm" autocomplete="off" required>
+    </div>
+    <p class="hint">Refused if it would leave any character with no images.</p>
+    <button type="submit">Delete permanently</button>
+  </form>
+{% endblock %}

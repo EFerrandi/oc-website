@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}OC Gallery{% endblock %}</title>
+  <link rel="stylesheet" href="/css/main.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {% include "partials/header.njk" %}
+
+  <nav class="site-nav">
+    <a href="/">Characters</a>
+    <a href="/relationships">Relationships</a>
+    <a href="/artists">Artists</a>
+  </nav>
+
+  <main class="site-main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <p>Original characters and artwork belong to their respective designers and artists.</p>
+  </footer>
+
+  <script src="/js/enhance.js" defer></script>
+  <script src="/js/lightbox.js" defer></script>
+</body>
+</html>

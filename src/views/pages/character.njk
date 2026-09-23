@@ -1,0 +1,105 @@
+{% extends "layout.njk" %}
+{% from "partials/credit.njk" import credit %}
+{% from "partials/image-preview.njk" import imagePreview %}
+{% from "partials/trait-list.njk" import traitList %}
+
+{% block title %}{{ character.name }} — OC Gallery{% endblock %}
+
+{% block content %}
+  <article class="character-detail">
+    <h1>{{ character.name }}</h1>
+
+    {% if character.jobTitles.length %}
+      <p class="card-jobs">{{ character.jobTitles | join(" · ") }}</p>
+    {% endif %}
+
+    <p class="character-gender">{{ character.genderName }}</p>
+    <p class="character-description">{{ character.shortDescription }}</p>
+
+    <section>
+      <h2>Tags</h2>
+      {% if character.tags.length %}
+        <ul class="chips">
+          {% for t in character.tags %}
+            <li><a class="chip" href="/?tag={{ t.name | urlencode }}">{{ t.name }}</a></li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-state">No tags recorded.</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>Sins &amp; Virtues</h2>
+      {{ traitList(character.traits) }}
+    </section>
+
+    <section>
+      <h2>Ownership</h2>
+      <p>Designed by {{ credit(character.designerName, character.designerUrl) }}</p>
+      <h3>Terms of use</h3>
+      <p class="terms">{{ character.termsOfUse }}</p>
+      <ul class="permissions">
+        <li>Can be regifted: <strong>{{ "Allowed" if character.canRegift else "Not allowed" }}</strong></li>
+        <li>Can be retraded: <strong>{{ "Allowed" if character.canRetrade else "Not allowed" }}</strong></li>
+        <li>Can be resold: <strong>{{ "Allowed" if character.canResell else "Not allowed" }}</strong></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Images</h2>
+      {% if character.images.length %}
+        <ul class="gallery">
+          {% for img in character.images %}
+            <li class="card">
+              {{ imagePreview(img) }}
+              <div class="card-body">
+                {% if img.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
+                {% if img.shortDescription %}<p>{{ img.shortDescription }}</p>{% endif %}
+                <p class="card-jobs">By {{ credit(img.artistName, img.artistUrl) }}</p>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-state">No images to show at the current content setting.</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>Stories</h2>
+      {% if character.stories.length %}
+        <ul>
+          {% for s in character.stories %}
+            <li>
+              <a href="/stories/{{ s.slug }}">{{ s.title }}</a>
+              {% if s.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-state">No stories to show at the current content setting.</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>Relationships</h2>
+      {% if character.relationships.length %}
+        <ul>
+          {% for r in character.relationships %}
+            <li>
+              {% if r.from.id == character.id %}
+                {{ r.label }} → <a href="/characters/{{ r.to.slug }}">{{ r.to.name }}</a>
+              {% else %}
+                <a href="/characters/{{ r.from.slug }}">{{ r.from.name }}</a> → {{ r.label }}
+              {% endif %}
+              {% if r.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-state">No relationships to show at the current content setting.</p>
+      {% endif %}
+    </section>
+  </article>
+{% endblock %}

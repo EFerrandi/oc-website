@@ -1,0 +1,17 @@
+{#
+  Every image renders as a reduced-size preview wrapped in a REAL anchor to
+  /images/:id. That href is what makes enlarging work with JavaScript
+  unavailable (FR-063, FR-065); the lightbox script merely intercepts it.
+
+  Usage: {% from "partials/image-preview.njk" import imagePreview %}
+         {{ imagePreview(img) }}
+#}
+{% macro imagePreview(img) %}
+  <a class="preview-link" href="/images/{{ img.id }}" data-alt="{{ img.altText }}">
+    <img class="card-thumb"
+         src="/media/{{ img.id }}"
+         alt="{{ img.altText }}"
+         loading="lazy"
+         decoding="async">
+  </a>
+{% endmacro %}

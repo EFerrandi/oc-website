@@ -1,0 +1,28 @@
+{% extends "layout.njk" %}
+
+{% block content %}
+  <nav class="admin-nav">
+    <a href="/admin">Dashboard</a>
+    <a href="/admin/characters">Characters</a>
+    <a href="/admin/images">Images</a>
+    <a href="/admin/stories">Stories</a>
+    <a href="/admin/relationships">Relationships</a>
+    <a href="/admin/tags">Tags</a>
+    <a href="/admin/traits">Sins &amp; Virtues</a>
+    <a href="/admin/genders">Genders</a>
+    <a href="/admin/artists">Artists</a>
+    <a href="/admin/designers">Designers</a>
+  </nav>
+
+  {% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
+
+  {% if fieldErrors %}
+    <ul class="field-errors">
+      {% for field, problem in fieldErrors %}
+        <li><strong>{{ field }}</strong>: {{ problem }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% block admin %}{% endblock %}
+{% endblock %}

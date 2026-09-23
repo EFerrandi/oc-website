@@ -1,0 +1,84 @@
+{#
+  Shared character form fields. `values` holds either submitted values (after a
+  validation failure) or the existing character, so nothing typed is ever lost.
+#}
+{% macro characterFields(options, values, selectedTagIds, selectedTraitIds, titles) %}
+  <div class="field">
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" value="{{ values.name or '' }}" required>
+  </div>
+
+  <div class="field">
+    <label for="gender_id">Gender</label>
+    <select id="gender_id" name="gender_id" required>
+      <option value="">Choose…</option>
+      {% for g in options.genders %}
+        <option value="{{ g.id }}" {% if ((values.gender_id or '') | string) == (g.id | string) or values.genderId == g.id %}selected{% endif %}>{{ g.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="short_description">Short description</label>
+    <textarea id="short_description" name="short_description" required>{{ values.short_description or values.shortDescription or '' }}</textarea>
+  </div>
+
+  <fieldset class="field">
+    <legend>Job titles (at least one)</legend>
+    {% for i in range(0, 5) %}
+      <input type="text" name="job_title" value="{{ titles[i] or '' }}" placeholder="Job title {{ i + 1 }}">
+    {% endfor %}
+  </fieldset>
+
+  <div class="field">
+    <label for="terms_of_use">Terms of use</label>
+    <textarea id="terms_of_use" name="terms_of_use" required>{{ values.terms_of_use or values.termsOfUse or '' }}</textarea>
+  </div>
+
+  <fieldset class="field">
+    <legend>Permissions</legend>
+    {% for key, label in {"can_regift": "Can be regifted", "can_retrade": "Can be retraded", "can_resell": "Can be resold"} %}
+      <p>
+        {{ label }}:
+        <label class="inline"><input type="radio" name="{{ key }}" value="1" {% if values[key] == "1" or values[key] == 1 %}checked{% endif %}> Allowed</label>
+        <label class="inline"><input type="radio" name="{{ key }}" value="0" {% if values[key] == "0" or values[key] == 0 %}checked{% endif %}> Not allowed</label>
+      </p>
+    {% endfor %}
+  </fieldset>
+
+  <div class="field">
+    <label for="designer_id">Designer</label>
+    <select id="designer_id" name="designer_id" required>
+      <option value="">Choose…</option>
+      {% for d in options.designers %}
+        <option value="{{ d.id }}" {% if ((values.designer_id or '') | string) == (d.id | string) or values.designerId == d.id %}selected{% endif %}>{{ d.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <fieldset class="field">
+    <legend>Tags (at least one required)</legend>
+    {% for t in options.tags %}
+      <label class="inline">
+        <input type="checkbox" name="tag_id" value="{{ t.id }}" {% if t.id in selectedTagIds %}checked{% endif %}>
+        {{ t.name }}
+      </label>
+    {% endfor %}
+    <label for="new_tags">Or add new tags (comma separated)</label>
+    <input type="text" id="new_tags" name="new_tags" placeholder="mischievous, winged">
+  </fieldset>
+
+  <fieldset class="field">
+    <legend>Sins &amp; Virtues (optional)</legend>
+    {% for t in options.traits %}
+      <label class="inline">
+        <input type="checkbox" name="trait_id" value="{{ t.id }}" {% if t.id in selectedTraitIds %}checked{% endif %}>
+        {{ t.name }} ({{ t.kind }})
+      </label>
+    {% endfor %}
+    <label for="new_sins">Or add new sins (comma separated)</label>
+    <input type="text" id="new_sins" name="new_sins">
+    <label for="new_virtues">Or add new virtues (comma separated)</label>
+    <input type="text" id="new_virtues" name="new_virtues">
+  </fieldset>
+{% endmacro %}

@@ -1,0 +1,39 @@
+{% extends "layout.njk" %}
+
+{% block title %}Relationships — OC Gallery{% endblock %}
+
+{% macro relationshipCard(title, rows, emptyMessage, nsfwCard) %}
+  <section class="relationship-card">
+    <h2>{{ title }}</h2>
+    {% if rows.length %}
+      <ul class="relationship-list">
+        {% for r in rows %}
+          <li>
+            <a href="/characters/{{ r.from.slug }}">{{ r.from.name }}</a>
+            <span class="relationship-label">{{ r.label }}</span>
+            <a href="/characters/{{ r.to.slug }}">{{ r.to.name }}</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-state">{{ emptyMessage }}</p>
+    {% endif %}
+  </section>
+{% endmacro %}
+
+{% block content %}
+  <h1>Relationships</h1>
+
+  <div class="relationship-cards">
+    {{ relationshipCard("SFW relationships", cards.sfw, "No relationships recorded yet.") }}
+
+    {# The NSFW card is always rendered so its existence is not itself a
+       signal, but it only ever contains rows once the visitor has opted in. #}
+    {{ relationshipCard(
+        "NSFW relationships",
+        cards.nsfw,
+        "Tick “Show NSFW content” above to see NSFW relationships." if not showNsfw
+          else "No NSFW relationships recorded yet."
+    ) }}
+  </div>
+{% endblock %}

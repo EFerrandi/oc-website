@@ -1,0 +1,33 @@
+{% extends "layout.njk" %}
+{% from "partials/credit.njk" import credit %}
+{% from "partials/image-preview.njk" import imagePreview %}
+
+{% block title %}Artists — OC Gallery{% endblock %}
+
+{% block content %}
+  <h1>Artists</h1>
+
+  {% if artists.length %}
+    {% for artist in artists %}
+      <section class="artist-group">
+        {# Clicking an artist name opens their site in a new tab (FR-005). #}
+        <h2>{{ credit(artist.name, artist.websiteUrl) }}</h2>
+        <p class="card-jobs">{{ artist.images.length }} image{{ "" if artist.images.length == 1 else "s" }}</p>
+
+        <ul class="gallery">
+          {% for img in artist.images %}
+            <li class="card">
+              {{ imagePreview(img) }}
+              <div class="card-body">
+                {% if img.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
+                {% if img.shortDescription %}<p>{{ img.shortDescription }}</p>{% endif %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endfor %}
+  {% else %}
+    <p class="empty-state">No artwork is visible at the current content setting.</p>
+  {% endif %}
+{% endblock %}

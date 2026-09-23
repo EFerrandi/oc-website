@@ -1,0 +1,51 @@
+{% extends "admin/layout.njk" %}
+
+{% block title %}{{ "Edit story" if story else "New story" }} — Admin{% endblock %}
+
+{% block admin %}
+  <h1>{{ "Edit story" if story else "Add a story" }}</h1>
+
+  <form method="post" action="{{ '/admin/stories/' + (story.id | string) if story else '/admin/stories' }}" class="filters">
+    <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+
+    <div class="field">
+      <label for="title">Title</label>
+      <input type="text" id="title" name="title" value="{{ values.title or '' }}" required>
+    </div>
+
+    <div class="field">
+      <label for="body">Story</label>
+      <textarea id="body" name="body" rows="16" required>{{ values.body or '' }}</textarea>
+    </div>
+
+    <fieldset class="field">
+      <legend>Characters (at least one required)</legend>
+      {% for c in options.characters %}
+        <label class="inline">
+          <input type="checkbox" name="character_id" value="{{ c.id }}"
+                 {% if story and c.id in story.characterIds %}checked{% endif %}>
+          {{ c.name }}
+        </label>
+      {% endfor %}
+    </fieldset>
+
+    <label class="inline">
+      <input type="checkbox" name="is_nsfw" value="1" {% if values.isNsfw == 1 or values.is_nsfw %}checked{% endif %}>
+      This story is NSFW
+    </label>
+
+    <p><button type="submit">{{ "Save changes" if story else "Create story" }}</button></p>
+  </form>
+
+  {% if story %}
+    <h2>Delete</h2>
+    <form method="post" action="/admin/stories/{{ story.id }}/delete" class="filters">
+      <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+      <div class="field">
+        <label for="confirm">Type <strong>delete</strong> to confirm</label>
+        <input type="text" id="confirm" name="confirm" autocomplete="off" required>
+      </div>
+      <button type="submit">Delete permanently</button>
+    </form>
+  {% endif %}
+{% endblock %}

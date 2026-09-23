@@ -1,0 +1,27 @@
+{% extends "layout.njk" %}
+{% from "partials/credit.njk" import credit %}
+
+{% block title %}{{ image.altText }} — OC Gallery{% endblock %}
+
+{% block content %}
+  <article class="image-view">
+    {# The original at its natural dimensions. This page is the no-JS
+       destination of every preview anchor (FR-065). #}
+    <img src="/media/{{ image.id }}/full" alt="{{ image.altText }}"
+         width="{{ image.width }}" height="{{ image.height }}">
+
+    {% if image.isNsfw %}<p><span class="badge-nsfw">NSFW</span></p>{% endif %}
+    {% if image.shortDescription %}<p>{{ image.shortDescription }}</p>{% endif %}
+
+    <p>By {{ credit(image.artistName, image.artistUrl) }}</p>
+
+    {% if characters.length %}
+      <h2>Characters</h2>
+      <ul class="chips">
+        {% for c in characters %}
+          <li><a class="chip" href="/characters/{{ c.slug }}">{{ c.name }}</a></li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </article>
+{% endblock %}

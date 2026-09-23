@@ -1,0 +1,52 @@
+{#
+  Plain GET form: filters are reflected back so the URL stays shareable and
+  reloadable (FR-018), and it works with JavaScript disabled.
+  Options come from the visible character set, so none can yield zero results.
+#}
+<form class="filters" method="get" action="/">
+  <div class="field">
+    <label for="gender">Gender</label>
+    <select id="gender" name="gender">
+      <option value="">Any</option>
+      {% for g in facets.genders %}
+        <option value="{{ g.name }}" {% if applied.gender == g.name %}selected{% endif %}>
+          {{ g.name }} ({{ g.characterCount }})
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  {% if facets.tags.length %}
+    <fieldset class="field">
+      <legend>Tags</legend>
+      {% for t in facets.tags %}
+        <label class="inline">
+          <input type="checkbox" name="tag" value="{{ t.name }}"
+                 {% if t.name in applied.tags %}checked{% endif %}>
+          {{ t.name }} ({{ t.characterCount }})
+        </label>
+      {% endfor %}
+    </fieldset>
+  {% endif %}
+
+  {% if facets.traits.sins.length or facets.traits.virtues.length %}
+    <fieldset class="field">
+      <legend>Sins &amp; Virtues</legend>
+      {% for group, label in {"sins": "Sins", "virtues": "Virtues"} %}
+        {% if facets.traits[group].length %}
+          <p class="facet-group-label">{{ label }}</p>
+          {% for t in facets.traits[group] %}
+            <label class="inline">
+              <input type="checkbox" name="trait" value="{{ t.name }}"
+                     {% if t.name in applied.traits %}checked{% endif %}>
+              {{ t.name }} ({{ t.characterCount }})
+            </label>
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+    </fieldset>
+  {% endif %}
+
+  <button type="submit">Apply filters</button>
+  {% if applied.any %}<a class="chip" href="/">Clear all</a>{% endif %}
+</form>
