@@ -1,0 +1,22 @@
+{% extends "layout.njk" %}
+
+{% block title %}{{ story.title }} — OC Gallery{% endblock %}
+
+{% block content %}
+  <article class="story">
+    <h1>{{ story.title }} {% if story.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}</h1>
+
+    {% if characters.length %}
+      <p class="card-jobs">
+        Featuring
+        {% for c in characters %}<a href="/characters/{{ c.slug }}">{{ c.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+      </p>
+    {% endif %}
+
+    <div class="story-body">
+      {% for paragraph in story.body.split("\n\n") %}
+        <p>{{ paragraph }}</p>
+      {% endfor %}
+    </div>
+  </article>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "admin/layout.njk" %}
+{% from "admin/partials/character-fields.njk" import characterFields %}
+
+{% block title %}Edit {{ character.name }} — Admin{% endblock %}
+
+{% block admin %}
+  <h1>Edit {{ character.name }}</h1>
+  <p><a href="/characters/{{ character.slug }}">View public page</a></p>
+
+  <form method="post" action="/admin/characters/{{ character.id }}" class="filters">
+    <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+
+    {{ characterFields(options, character, character.tagIds, character.traitIds, character.jobTitles) }}
+
+    <div class="field">
+      <label for="avatar_image_id">Avatar</label>
+      <select id="avatar_image_id" name="avatar_image_id">
+        {% for img in character.images %}
+          <option value="{{ img.id }}" {% if character.avatarImageId == img.id %}selected{% endif %}>
+            {{ img.altText }}{% if img.isNsfw %} (NSFW){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+      <p class="hint">Must be one of this character's own images.</p>
+    </div>
+
+    <button type="submit">Save changes</button>
+  </form>
+
+  <h2>Images ({{ character.images.length }})</h2>
+  <ul>
+    {% for img in character.images %}
+      <li><a href="/admin/images/{{ img.id }}/edit">{{ img.altText }}</a></li>
+    {% endfor %}
+  </ul>
+  <p><a class="chip" href="/admin/images/new">Add an image</a></p>
+
+  <h2>Delete</h2>
+  {# Explicit confirmation naming the item — deletion is permanent (FR-053). #}
+  <form method="post" action="/admin/characters/{{ character.id }}/delete" class="filters">
+    <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+    <div class="field">
+      <label for="confirm_name">Type <strong>{{ character.name }}</strong> to confirm permanent deletion</label>
+      <input type="text" id="confirm_name" name="confirm_name" autocomplete="off" required>
+    </div>
+    <p class="hint">
+      Images and stories shared with another character will survive.
+      Anything linked only to {{ character.name }} will be deleted with it.
+    </p>
+    <button type="submit">Delete permanently</button>
+  </form>
+{% endblock %}

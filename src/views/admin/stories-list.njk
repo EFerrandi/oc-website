@@ -1,0 +1,21 @@
+{% extends "admin/layout.njk" %}
+
+{% block title %}Stories — Admin{% endblock %}
+
+{% block admin %}
+  <h1>Stories</h1>
+  <p><a class="chip" href="/admin/stories/new">Add a story</a></p>
+
+  {% if stories.length %}
+    <ul>
+      {% for s in stories %}
+        <li>
+          <a href="/admin/stories/{{ s.id }}/edit">{{ s.title }}</a>
+          {% if s.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-state">No stories yet.</p>
+  {% endif %}
+{% endblock %}

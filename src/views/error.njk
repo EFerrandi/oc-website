@@ -1,0 +1,22 @@
+{% extends "layout.njk" %}
+
+{% block title %}{{ status }} — {{ title }}{% endblock %}
+
+{% block content %}
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
+
+  {% if detail %}
+    <p class="error-detail">{{ detail }}</p>
+  {% endif %}
+
+  {% if fieldErrors %}
+    <ul class="field-errors">
+      {% for field, problem in fieldErrors %}
+        <li><strong>{{ field }}</strong>: {{ problem }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <p><a href="/">Back to the gallery</a></p>
+{% endblock %}

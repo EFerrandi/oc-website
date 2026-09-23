@@ -1,0 +1,21 @@
+{% extends "admin/layout.njk" %}
+
+{% block title %}Characters — Admin{% endblock %}
+
+{% block admin %}
+  <h1>Characters</h1>
+  <p><a class="chip" href="/admin/characters/new">Add a character</a></p>
+
+  {% if characters.length %}
+    <ul>
+      {% for c in characters %}
+        <li>
+          <a href="/admin/characters/{{ c.id }}/edit">{{ c.name }}</a>
+          — <a href="/characters/{{ c.slug }}">view</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-state">No characters yet.</p>
+  {% endif %}
+{% endblock %}

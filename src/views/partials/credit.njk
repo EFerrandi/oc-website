@@ -1,0 +1,14 @@
+{#
+  Renders a credit (designer or artist). A valid absolute http/https URL makes
+  it a link that opens in a new tab; anything else renders as plain text so a
+  missing or malformed URL never produces a broken link (FR-005).
+
+  Usage: {% from "partials/credit.njk" import credit %}{{ credit(name, url) }}
+#}
+{% macro credit(name, url) -%}
+  {%- if url -%}
+    <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ name }}</a>
+  {%- else -%}
+    <span class="credit-plain">{{ name }}</span>
+  {%- endif -%}
+{%- endmacro %}

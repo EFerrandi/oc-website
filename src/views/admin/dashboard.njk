@@ -1,0 +1,18 @@
+{% extends "admin/layout.njk" %}
+
+{% block title %}Admin — OC Gallery{% endblock %}
+
+{% block admin %}
+  <h1>Admin</h1>
+
+  <ul class="admin-counts">
+    <li>{{ counts.characters }} characters</li>
+    <li>{{ counts.images }} images</li>
+    <li>{{ counts.stories }} stories</li>
+    <li>{{ counts.relationships }} relationships</li>
+  </ul>
+
+  <p><a class="chip" href="/admin/characters/new">Add a character</a></p>
+  <p><a class="chip" href="/admin/images/new">Add an image</a></p>
+  <p><a class="chip" href="/admin/stories/new">Add a story</a></p>
+{% endblock %}

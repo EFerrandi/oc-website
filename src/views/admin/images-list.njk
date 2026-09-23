@@ -1,0 +1,22 @@
+{% extends "admin/layout.njk" %}
+
+{% block title %}Images — Admin{% endblock %}
+
+{% block admin %}
+  <h1>Images</h1>
+  <p><a class="chip" href="/admin/images/new">Add an image</a></p>
+
+  {% if images.length %}
+    <ul>
+      {% for i in images %}
+        <li>
+          <a href="/admin/images/{{ i.id }}/edit">{{ i.altText }}</a>
+          — {{ i.artistName }}
+          {% if i.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-state">No images yet.</p>
+  {% endif %}
+{% endblock %}

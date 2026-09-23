@@ -1,0 +1,29 @@
+{#
+  Traits grouped under Sins and Virtues. A character carrying only sins, or
+  only virtues, shows just the populated heading (FR-003, Edge Cases).
+#}
+{% macro traitList(traits) %}
+  {% if traits.sins.length or traits.virtues.length %}
+    <div class="trait-groups">
+      {% if traits.sins.length %}
+        <section class="trait-group">
+          <h3>Sins</h3>
+          <ul class="chips">
+            {% for t in traits.sins %}<li><span class="chip">{{ t.name }}</span></li>{% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+
+      {% if traits.virtues.length %}
+        <section class="trait-group">
+          <h3>Virtues</h3>
+          <ul class="chips">
+            {% for t in traits.virtues %}<li><span class="chip">{{ t.name }}</span></li>{% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+    </div>
+  {% else %}
+    <p class="empty-state">No sins or virtues recorded.</p>
+  {% endif %}
+{% endmacro %}

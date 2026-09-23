@@ -20,8 +20,8 @@ How to run the site locally and verify it satisfies the specification. Data shap
 npm install
 Copy-Item .env.example .env
 npm run admin:set-password        # prompts, writes the scrypt hash into .env
-npm run db:migrate                # creates data/oc.db and applies migrations
-npm run seed:dev                  # optional demo content for manual checks
+npm run migrate                   # creates data/oc.db and applies migrations
+npm run seed                      # optional demo content for manual checks
 npm run dev
 ```
 

@@ -1,0 +1,88 @@
+{% extends "admin/layout.njk" %}
+
+{% block title %}{{ kindLabel }} — Admin{% endblock %}
+
+{% block admin %}
+  <h1>{{ kindLabel }}</h1>
+
+  <form method="post" action="/admin/{{ kind }}" class="filters">
+    <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+
+    <div class="field">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" required>
+    </div>
+
+    {% if hasTraitKind %}
+      <div class="field">
+        <label for="traitKind">Type</label>
+        <select id="traitKind" name="traitKind">
+          <option value="sin">Sin</option>
+          <option value="virtue">Virtue</option>
+        </select>
+      </div>
+    {% endif %}
+
+    {% if hasUrl %}
+      <div class="field">
+        <label for="websiteUrl">Website (optional)</label>
+        <input type="url" id="websiteUrl" name="websiteUrl" placeholder="https://">
+      </div>
+    {% endif %}
+
+    <button type="submit">Add</button>
+  </form>
+
+  {% if items.length %}
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          {% if hasTraitKind %}<th>Type</th>{% endif %}
+          {% if hasUrl %}<th>Website</th>{% endif %}
+          <th>In use</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td>
+              <form method="post" action="/admin/{{ kind }}/{{ item.id }}" class="inline-form">
+                <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+                <input type="text" name="name" value="{{ item.name }}" required>
+                {% if hasTraitKind %}
+                  <select name="traitKind">
+                    <option value="sin" {% if item.kind == "sin" %}selected{% endif %}>Sin</option>
+                    <option value="virtue" {% if item.kind == "virtue" %}selected{% endif %}>Virtue</option>
+                  </select>
+                {% endif %}
+                {% if hasUrl %}
+                  <input type="url" name="websiteUrl" value="{{ item.websiteUrl or '' }}" placeholder="https://">
+                {% endif %}
+                <button type="submit">Save</button>
+              </form>
+            </td>
+            {% if hasTraitKind %}<td>{{ item.kind }}</td>{% endif %}
+            {% if hasUrl %}<td>{{ item.websiteUrl or "—" }}</td>{% endif %}
+            <td>{{ item.usage }}</td>
+            <td>
+              <form method="post" action="/admin/{{ kind }}/{{ item.id }}/delete" class="inline-form">
+                <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+                <input type="hidden" name="confirm" value="delete">
+                <button type="submit">Delete</button>
+              </form>
+              {% if item.usage > 0 and blocksDelete %}
+                <span class="hint">In use — cannot be deleted</span>
+              {% elif item.usage > 0 %}
+                <span class="hint">Deleting detaches it from {{ item.usage }} character(s)</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-state">Nothing here yet.</p>
+  {% endif %}
+{% endblock %}

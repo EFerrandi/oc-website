@@ -141,3 +141,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# --- OC website runtime data (T005) ---
+# SQLite database, uploaded originals and generated previews must never be committed.
+data/

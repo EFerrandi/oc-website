@@ -1,0 +1,57 @@
+{% extends "admin/layout.njk" %}
+
+{% block title %}Relationships — Admin{% endblock %}
+
+{% block admin %}
+  <h1>Relationships</h1>
+
+  <form method="post" action="/admin/relationships" class="filters">
+    <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+
+    <div class="field">
+      <label for="from_character_id">From</label>
+      <select id="from_character_id" name="from_character_id" required>
+        <option value="">Choose…</option>
+        {% for c in options.characters %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="label">Relationship</label>
+      <input type="text" id="label" name="label" value="{{ values.label or '' }}" placeholder="childhood friends" required>
+    </div>
+
+    <div class="field">
+      <label for="to_character_id">To</label>
+      <select id="to_character_id" name="to_character_id" required>
+        <option value="">Choose…</option>
+        {% for c in options.characters %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <label class="inline">
+      <input type="checkbox" name="is_nsfw" value="1">
+      This relationship is NSFW
+    </label>
+
+    <p><button type="submit">Add relationship</button></p>
+  </form>
+
+  {% if relationships.length %}
+    <ul>
+      {% for r in relationships %}
+        <li>
+          {{ r.fromName }} — <strong>{{ r.label }}</strong> — {{ r.toName }}
+          {% if r.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
+          <form method="post" action="/admin/relationships/{{ r.id }}/delete" class="inline-form">
+            <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+            <input type="hidden" name="confirm" value="delete">
+            <button type="submit">Delete</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-state">No relationships yet.</p>
+  {% endif %}
+{% endblock %}
