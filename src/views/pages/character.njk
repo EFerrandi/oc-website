@@ -6,47 +6,63 @@
 {% block title %}{{ character.name }} — OC Gallery{% endblock %}
 
 {% block content %}
-  <article class="character-detail">
-    <h1>{{ character.name }}</h1>
+  <article class="character-profile">
 
-    {% if character.jobTitles.length %}
-      <p class="card-jobs">{{ character.jobTitles | join(" · ") }}</p>
-    {% endif %}
+    {# Avatar first, summary beside it. The order here is the reading order for
+       a screen reader and for a narrow screen, where the grid collapses to a
+       single column — so it is the avatar that must come first in the markup,
+       not merely be placed left by CSS. #}
+    <header class="profile-header">
+      <div class="profile-avatar">
+        <img class="profile-avatar-image"
+             src="{{ ('/media/' + character.avatar.id) if character.avatar else '/img/placeholder-avatar.svg' }}"
+             alt="{{ character.avatar.altText if character.avatar and character.avatar.altText else character.name }}"
+             width="220" height="220">
+      </div>
 
-    <p class="character-gender">{{ character.genderName }}</p>
-    <p class="character-description">{{ character.shortDescription }}</p>
+      <div class="profile-summary">
+        <h1>{{ character.name }}</h1>
 
-    <section>
-      <h2>Tags</h2>
-      {% if character.tags.length %}
-        <ul class="chips">
-          {% for t in character.tags %}
-            <li><a class="chip" href="/?tag={{ t.name | urlencode }}">{{ t.name }}</a></li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="empty-state">No tags recorded.</p>
-      {% endif %}
-    </section>
+        {% if character.jobTitles.length %}
+          <p class="card-jobs">{{ character.jobTitles | join(" · ") }}</p>
+        {% endif %}
 
-    <section>
-      <h2>Sins &amp; Virtues</h2>
-      {{ traitList(character.traits) }}
-    </section>
+        <p class="character-gender">{{ character.genderName }}</p>
+        <p class="character-description">{{ character.shortDescription }}</p>
 
-    <section>
-      <h2>Ownership</h2>
-      <p>Designed by {{ credit(character.designerName, character.designerUrl) }}</p>
-      <h3>Terms of use</h3>
-      <p class="terms">{{ character.termsOfUse }}</p>
-      <ul class="permissions">
-        <li>Can be regifted: <strong>{{ "Allowed" if character.canRegift else "Not allowed" }}</strong></li>
-        <li>Can be retraded: <strong>{{ "Allowed" if character.canRetrade else "Not allowed" }}</strong></li>
-        <li>Can be resold: <strong>{{ "Allowed" if character.canResell else "Not allowed" }}</strong></li>
-      </ul>
-    </section>
+        <section class="summary-block">
+          <h2>Tags</h2>
+          {% if character.tags.length %}
+            <ul class="chips">
+              {% for t in character.tags %}
+                <li><a class="chip" href="/?tag={{ t.name | urlencode }}">{{ t.name }}</a></li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="empty-state">No tags recorded.</p>
+          {% endif %}
+        </section>
 
-    <section>
+        <section class="summary-block">
+          <h2>Sins &amp; Virtues</h2>
+          {{ traitList(character.traits) }}
+        </section>
+
+        <section class="summary-block">
+          <h2>Ownership</h2>
+          <p>Designed by {{ credit(character.designerName, character.designerUrl) }}</p>
+          <h3>Terms of use</h3>
+          <p class="terms">{{ character.termsOfUse }}</p>
+          <ul class="permissions">
+            <li>Can be regifted: <strong>{{ "Allowed" if character.canRegift else "Not allowed" }}</strong></li>
+            <li>Can be retraded: <strong>{{ "Allowed" if character.canRetrade else "Not allowed" }}</strong></li>
+            <li>Can be resold: <strong>{{ "Allowed" if character.canResell else "Not allowed" }}</strong></li>
+          </ul>
+        </section>
+      </div>
+    </header>
+
+    <section class="profile-images">
       <h2>Images</h2>
       {% if character.images.length %}
         <ul class="gallery">
@@ -66,14 +82,29 @@
       {% endif %}
     </section>
 
-    <section>
+    <section class="profile-stories">
       <h2>Stories</h2>
       {% if character.stories.length %}
-        <ul>
+        <ul class="story-list">
           {% for s in character.stories %}
             <li>
-              <a href="/stories/{{ s.slug }}">{{ s.title }}</a>
-              {% if s.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
+              {# Native <details>: collapsed to the title plus an opening
+                 extract, expanding in place, with no JavaScript involved. The
+                 body is already in the page, so the story is readable whether
+                 or not the disclosure widget works. #}
+              <details class="story">
+                <summary>
+                  <span class="story-title">{{ s.title }}</span>
+                  {% if s.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
+                  <span class="story-extract">{{ s.body | truncate(140, false, "…") }}</span>
+                </summary>
+                <div class="story-body">
+                  {% for paragraph in s.body.split("\n\n") %}
+                    {% if paragraph | trim %}<p>{{ paragraph | trim }}</p>{% endif %}
+                  {% endfor %}
+                </div>
+                <p class="story-permalink"><a href="/stories/{{ s.slug }}">Open this story on its own page</a></p>
+              </details>
             </li>
           {% endfor %}
         </ul>
@@ -82,7 +113,7 @@
       {% endif %}
     </section>
 
-    <section>
+    <section class="profile-relationships">
       <h2>Relationships</h2>
       {% if character.relationships.length %}
         <ul>

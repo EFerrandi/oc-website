@@ -1,3 +1,5 @@
+import { resolveAvatarForCharacterId } from './avatars.js';
+
 const SELECT_RELATIONSHIP = `
   SELECT r.id, r.label, r.is_nsfw AS isNsfw,
          f.id AS fromId, f.name AS fromName, f.slug AS fromSlug,
@@ -36,12 +38,43 @@ export function listAllRelationships(db, { showNsfw }) {
 }
 
 /**
+ * The same rows as listAllRelationships, with each endpoint's effective avatar
+ * attached, for drawing the relationship map.
+ *
+ * The avatar goes through resolveEffectiveAvatar — the same rating-filtered
+ * path the gallery uses — rather than reading avatar_image_id directly, so a
+ * character whose designated avatar is NSFW falls back to a visible image for
+ * a visitor who has not opted in instead of leaking or blanking.
+ *
+ * Avatars are cached per character within one call because a character
+ * typically appears in several relationships and the resolution costs two
+ * queries each time.
+ */
+export function listRelationshipsWithAvatars(db, { showNsfw }) {
+  const rows = listAllRelationships(db, { showNsfw });
+  const cache = new Map();
+
+  const avatarFor = (characterId) => {
+    if (!cache.has(characterId)) {
+      cache.set(characterId, resolveAvatarForCharacterId(db, characterId, { showNsfw }));
+    }
+    return cache.get(characterId);
+  };
+
+  return rows.map((row) => ({
+    ...row,
+    from: { ...row.from, avatar: avatarFor(row.from.id) },
+    to: { ...row.to, avatar: avatarFor(row.to.id) },
+  }));
+}
+
+/**
  * Split into the two cards the relationships page renders. The NSFW card is
  * always empty when the visitor has not opted in, because the query above
  * already excluded those rows.
  */
 export function listRelationshipCards(db, { showNsfw }) {
-  const all = listAllRelationships(db, { showNsfw });
+  const all = listRelationshipsWithAvatars(db, { showNsfw });
   return {
     sfw: all.filter((r) => !r.isNsfw),
     nsfw: all.filter((r) => r.isNsfw),

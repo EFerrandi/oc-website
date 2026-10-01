@@ -170,3 +170,52 @@ test('form fields are labelled', async (t) => {
     );
   }
 });
+
+/* ------------------------------------------------------------------ *
+ * US7 � the visual refresh must not cost any accessibility.
+ * ------------------------------------------------------------------ */
+
+// T084 � FR-036, SC-013.
+test('every page still exposes its landmarks, headings and alternative text', async (t) => {
+  const { app } = setup(t);
+
+  for (const page of ['/', '/characters/aria', '/relationships', '/artists']) {
+    const res = await request(app).get(page);
+    assert.equal(res.status, 200, `${page} should render`);
+
+    assert.ok(res.text.includes('<header'), `${page} lost its banner landmark`);
+    assert.ok(res.text.includes('<nav'), `${page} lost its navigation landmark`);
+    assert.ok(res.text.includes('<main'), `${page} lost its main landmark`);
+    assert.ok(res.text.includes('<footer'), `${page} lost its footer landmark`);
+
+    const h1 = res.text.match(/<h1[\s>]/g) ?? [];
+    assert.equal(h1.length, 1, `${page} must have exactly one <h1>, found ${h1.length}`);
+
+    for (const img of res.text.match(/<img\b[^>]*>/g) ?? []) {
+      assert.match(img, /\salt="/, `${page} has an image with no alt attribute: ${img}`);
+    }
+
+    // SVG content needs an accessible name of its own; alt does not apply.
+    for (const svg of res.text.match(/<svg\b[^>]*>/g) ?? []) {
+      assert.match(
+        svg,
+        /aria-labelledby=|aria-label=|aria-hidden="true"/,
+        `${page} has an svg with no accessible name and no way to ignore it: ${svg}`,
+      );
+    }
+  }
+});
+
+// T085 � FR-021a.
+test('the visually-hidden utility clips rather than hiding', () => {
+  assert.match(css, /\.visually-hidden\s*\{/, 'no .visually-hidden utility is defined');
+
+  const rule = css.slice(css.indexOf('.visually-hidden'), css.indexOf('}', css.indexOf('.visually-hidden')));
+
+  // display:none and visibility:hidden remove an element from the
+  // accessibility tree as well as from the screen, which would silently delete
+  // the relationship map's text equivalent for exactly the people who need it.
+  assert.ok(!/display:\s*none/.test(rule), 'display:none hides the text from screen readers too');
+  assert.ok(!/visibility:\s*hidden/.test(rule), 'visibility:hidden hides the text from screen readers too');
+  assert.match(rule, /clip-path:|clip:/, 'the utility must clip the element rather than hide it');
+});

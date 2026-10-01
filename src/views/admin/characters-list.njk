@@ -7,11 +7,15 @@
   <p><a class="chip" href="/admin/characters/new">Add a character</a></p>
 
   {% if characters.length %}
-    <ul>
+    <ul class="admin-list">
       {% for c in characters %}
         <li>
           <a href="/admin/characters/{{ c.id }}/edit">{{ c.name }}</a>
           — <a href="/characters/{{ c.slug }}">view</a>
+          {# Links to the confirmation on the edit page rather than carrying a
+             name field per row: one confirmation, in one place, with one way
+             to get it wrong (research R-010). #}
+          — <a class="link-danger" href="/admin/characters/{{ c.id }}/edit#delete">Delete</a>
         </li>
       {% endfor %}
     </ul>

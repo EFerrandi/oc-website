@@ -1,42 +1,14 @@
+import { resolveEffectiveAvatar } from './avatars.js';
 import { listImagesForCharacter } from './images.js';
 import { listRelationshipsForCharacter } from './relationships.js';
 import { listStoriesForCharacter } from './stories.js';
 import { listTagsForCharacter } from './tags.js';
 import { groupTraits, listTraitsForCharacter } from './traits.js';
 
-/**
- * Resolve the avatar actually shown for a character (FR-014, research R-014).
- *
- * Three steps, in order:
- *   1. the designated avatar, if it is visible at the current rating;
- *   2. otherwise the oldest visible linked image;
- *   3. otherwise none — the caller renders the static placeholder.
- *
- * Returning null rather than hiding the character is the point: a character
- * whose every image is NSFW must still be listed.
- */
-export function resolveEffectiveAvatar(db, character, { showNsfw }) {
-  const rating = { showNsfw: showNsfw ? 1 : 0 };
-
-  if (character.avatarImageId) {
-    const designated = db.prepare(`
-      SELECT id, alt_text AS altText, is_nsfw AS isNsfw
-      FROM image
-      WHERE id = :id AND (:showNsfw = 1 OR is_nsfw = 0)
-    `).get({ id: character.avatarImageId, ...rating });
-
-    if (designated) return designated;
-  }
-
-  return db.prepare(`
-    SELECT i.id, i.alt_text AS altText, i.is_nsfw AS isNsfw
-    FROM image i
-    JOIN character_image ci ON ci.image_id = i.id
-    WHERE ci.character_id = :characterId AND (:showNsfw = 1 OR i.is_nsfw = 0)
-    ORDER BY i.created_at, i.id
-    LIMIT 1
-  `).get({ characterId: character.id, ...rating }) ?? null;
-}
+// Re-exported so existing callers and tests keep their import path. The
+// implementation moved to avatars.js to break a circular import — see the
+// comment at the top of that file.
+export { resolveEffectiveAvatar };
 
 function listJobTitles(db, characterId) {
   return db.prepare(`

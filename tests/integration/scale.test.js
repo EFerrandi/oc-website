@@ -157,3 +157,46 @@ test('opting in adds content rather than replacing it', async (t) => {
     'a visitor who opts in sees strictly more images, never fewer',
   );
 });
+
+/**
+ * SC-007: the relationship map is laid out on every request, so its cost is
+ * part of the page-render budget rather than something the browser absorbs
+ * later. 300 relationships is the stated ceiling.
+ */
+test('the relationship map renders within budget at 100 characters and 300 relationships', async (t) => {
+  const ctx = createTestApp();
+  t.after(() => ctx.cleanup());
+
+  transaction(ctx.db, () => {
+    seedRows(ctx.db);
+
+    const at = nowIso();
+    const ids = ctx.db.prepare('SELECT id FROM character ORDER BY id').all().map((r) => r.id);
+    const insert = ctx.db.prepare(`
+      INSERT INTO relationship (from_character_id, to_character_id, label, is_nsfw, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    for (let i = 0; i < 300; i += 1) {
+      const from = ids[i % ids.length];
+      const to = ids[((i * 7) + 13) % ids.length];
+      if (from === to) continue;
+
+      // A quarter NSFW, so both maps are laid out and both are measured.
+      insert.run(from, to, `relation ${i}`, i % 4 === 0 ? 1 : 0, at, at);
+    }
+  });
+
+  const budgetMs = 3000;
+
+  const anonymous = await timed(() => request(ctx.app).get('/relationships'));
+  assert.equal(anonymous.result.status, 200);
+  assert.ok(anonymous.ms < budgetMs, `SFW map took ${anonymous.ms.toFixed(0)}ms (budget ${budgetMs}ms)`);
+
+  // With the opt-in both maps are populated, which is the worst case.
+  const opted = await timed(() => request(ctx.app).get('/relationships').set('Cookie', NSFW_ON));
+  assert.equal(opted.result.status, 200);
+  assert.ok(opted.ms < budgetMs, `both maps took ${opted.ms.toFixed(0)}ms (budget ${budgetMs}ms)`);
+
+  assert.ok(opted.result.text.includes('data-node='), 'the map rendered nothing at scale');
+});

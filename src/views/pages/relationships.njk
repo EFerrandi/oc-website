@@ -1,21 +1,22 @@
 {% extends "layout.njk" %}
+{% import "partials/relationship-map.njk" as map %}
 
 {% block title %}Relationships — OC Gallery{% endblock %}
 
-{% macro relationshipCard(title, rows, emptyMessage, nsfwCard) %}
-  <section class="relationship-card">
+{% macro mapSection(title, layout, rating, emptyMessage) %}
+  {# `data-map-region` wraps the whole section, including the empty state, so
+     tests can scope assertions to one rating even when nothing is drawn. The
+     `data-map` attribute on the <svg> is a different thing: the drag script
+     uses it, and it does not exist when there is no map. #}
+  <section class="relationship-card" data-map-region="{{ rating }}">
     <h2>{{ title }}</h2>
-    {% if rows.length %}
-      <ul class="relationship-list">
-        {% for r in rows %}
-          <li>
-            <a href="/characters/{{ r.from.slug }}">{{ r.from.name }}</a>
-            <span class="relationship-label">{{ r.label }}</span>
-            <a href="/characters/{{ r.to.slug }}">{{ r.to.name }}</a>
-          </li>
-        {% endfor %}
-      </ul>
+
+    {% if layout.edges.length %}
+      <div class="relationship-map-frame">
+        {{ map.relationshipMap(layout, rating, title) }}
+      </div>
     {% else %}
+      {# An empty map is a sentence, not a blank frame (FR-007). #}
       <p class="empty-state">{{ emptyMessage }}</p>
     {% endif %}
   </section>
@@ -24,14 +25,29 @@
 {% block content %}
   <h1>Relationships</h1>
 
-  <div class="relationship-cards">
-    {{ relationshipCard("SFW relationships", cards.sfw, "No relationships recorded yet.") }}
+  <p class="map-help">
+    Each character is drawn as their avatar; a line joins two characters, with
+    their relationship written at its middle. Select an avatar to open that
+    character.
+  </p>
 
-    {# The NSFW card is always rendered so its existence is not itself a
-       signal, but it only ever contains rows once the visitor has opted in. #}
-    {{ relationshipCard(
+  <p class="map-help">
+    You can rearrange the map: drag an avatar, or focus one with
+    <kbd>Tab</kbd> and move it with the <strong>arrow keys</strong> —
+    hold <kbd>Shift</kbd> with an arrow key to move further. Rearranging is
+    yours alone and is not saved; reloading restores the default layout.
+  </p>
+
+  <div class="relationship-cards">
+    {{ mapSection("SFW relationships", maps.sfw, "sfw", "No relationships recorded yet.") }}
+
+    {# The NSFW section is always rendered so its existence is not itself a
+       signal, but its layout only ever contains anything once the visitor has
+       opted in — the rows were filtered out in SQL, long before this point. #}
+    {{ mapSection(
         "NSFW relationships",
-        cards.nsfw,
+        maps.nsfw,
+        "nsfw",
         "Tick “Show NSFW content” above to see NSFW relationships." if not showNsfw
           else "No NSFW relationships recorded yet."
     ) }}

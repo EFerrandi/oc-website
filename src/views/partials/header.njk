@@ -19,6 +19,10 @@
     </form>
 
     {% if isAdmin %}
+      {# Only ever rendered for a signed-in admin: an anonymous visitor must
+         see nothing that reveals the admin area beyond the sign-in link
+         that was already here (FR-029). #}
+      <a class="admin-entry admin-return" href="/admin">Admin</a>
       <form method="post" action="/admin/logout" class="admin-entry">
         <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
         <button type="submit" class="link-button">Sign out</button>

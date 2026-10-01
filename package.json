@@ -11,7 +11,7 @@
     "start": "node --env-file-if-exists=.env src/server.js",
     "dev": "node --env-file-if-exists=.env --watch src/server.js",
     "test": "node --test --test-concurrency=1 \"tests/**/*.test.js\"",
-    "test:nsfw": "node --test --test-concurrency=1 \"tests/integration/nsfw-*.test.js\" \"tests/integration/route-audit.test.js\" \"tests/contract/media.test.js\"",
+    "test:nsfw": "node --test --test-concurrency=1 \"tests/integration/nsfw-*.test.js\" \"tests/integration/relationship-map.test.js\" \"tests/integration/route-audit.test.js\" \"tests/contract/media.test.js\"",
     "migrate": "node --env-file-if-exists=.env src/db/migrate.js",
     "seed": "node --env-file-if-exists=.env src/seed.js",
     "admin:set-password": "node scripts/set-admin-password.js"

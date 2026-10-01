@@ -35,18 +35,24 @@
   </ul>
   <p><a class="chip" href="/admin/images/new">Add an image</a></p>
 
-  <h2>Delete</h2>
-  {# Explicit confirmation naming the item — deletion is permanent (FR-053). #}
-  <form method="post" action="/admin/characters/{{ character.id }}/delete" class="filters">
+  <h2 id="delete">Delete</h2>
+  {# Explicit confirmation naming the item — deletion is permanent (FR-053).
+     This form is a SIBLING of the edit form above, never nested inside it:
+     nested forms are invalid HTML and the parser drops the inner one, which
+     would quietly turn "Delete permanently" into a second save button. #}
+  <form method="post" action="/admin/characters/{{ character.id }}/delete" class="filters danger-zone">
     <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
     <div class="field">
       <label for="confirm_name">Type <strong>{{ character.name }}</strong> to confirm permanent deletion</label>
       <input type="text" id="confirm_name" name="confirm_name" autocomplete="off" required>
+      {% if fieldErrors and fieldErrors.confirm_name %}
+        <p class="field-errors">{{ fieldErrors.confirm_name }}</p>
+      {% endif %}
     </div>
     <p class="hint">
       Images and stories shared with another character will survive.
       Anything linked only to {{ character.name }} will be deleted with it.
     </p>
-    <button type="submit">Delete permanently</button>
+    <button type="submit" class="button-danger">Delete permanently</button>
   </form>
 {% endblock %}

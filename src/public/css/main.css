@@ -1,14 +1,43 @@
 :root {
+  /*
+   * Design tokens (FR-031, FR-035). Every colour pair below was chosen for
+   * WCAG 2.1 AA: 4.5:1 for body text, 3:1 for large text and for the
+   * boundaries of interactive controls. --muted on --surface is the tightest
+   * pair at ~5.4:1, which is why it is reserved for secondary prose and never
+   * used for a control's only label.
+   */
   --bg: #14121a;
   --surface: #1f1c29;
   --surface-2: #2a2637;
   --text: #ece9f3;
   --muted: #a49fb8;
   --accent: #b58bff;
+  --accent-ink: #1a1523;
   --border: #38334a;
+  --border-strong: #4d4668;
   --danger: #ff7b7b;
+
   --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 16px;
+
+  /* Spacing scale. --gap stays the base step so existing rules keep working. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
   --gap: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  /* Fluid type: scales with the viewport between the two bounds, so the page
+     is readable at 320px without a media query per heading. */
+  --text-sm: 0.85rem;
+  --text-base: clamp(0.95rem, 0.9rem + 0.2vw, 1.05rem);
+  --text-lg: clamp(1.1rem, 1rem + 0.5vw, 1.3rem);
+  --text-xl: clamp(1.4rem, 1.15rem + 1.2vw, 2rem);
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-2: 0 6px 20px rgb(0 0 0 / 0.35);
 }
 
 * { box-sizing: border-box; }
@@ -18,8 +47,13 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  line-height: 1.5;
+  font-size: var(--text-base);
+  line-height: 1.55;
 }
+
+h1 { font-size: var(--text-xl); line-height: 1.2; }
+h2 { font-size: var(--text-lg); line-height: 1.25; }
+h3 { font-size: var(--text-base); }
 
 img { max-width: 100%; height: auto; display: block; }
 a { color: var(--accent); }
@@ -44,9 +78,13 @@ body { overflow-wrap: break-word; }
   align-items: center;
   justify-content: space-between;
   gap: var(--gap);
-  padding: 0.75rem 1rem;
+  padding: var(--space-3) var(--gap);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .site-brand {
@@ -85,21 +123,35 @@ body { overflow-wrap: break-word; }
 
 .site-nav {
   display: flex;
-  gap: 1rem;
-  padding: 0.6rem 1rem;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--gap);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
 }
 
-.site-main { padding: 1.25rem 1rem; max-width: 1400px; margin: 0 auto; }
-.site-footer { padding: 1.5rem 1rem; color: var(--muted); font-size: 0.85rem; text-align: center; }
+.site-nav a {
+  padding: var(--space-2) var(--space-3);
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-nav a:hover,
+.site-nav a:focus-visible { background: var(--surface-2); }
+
+.site-main { padding: var(--space-5) var(--gap); max-width: 1400px; margin: 0 auto; }
+.site-footer { padding: var(--space-6) var(--gap); color: var(--muted); font-size: var(--text-sm); text-align: center; }
 
 /* ---------- Gallery ---------- */
 
 .gallery {
   display: grid;
   gap: var(--gap);
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  /* Fluid columns with no fixed breakpoint: the track count follows the
+     available width, which is what keeps 320px to 1920px working without a
+     ladder of media queries (FR-033, SC-011). */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr));
   list-style: none;
   padding: 0;
   margin: 0;
@@ -108,8 +160,19 @@ body { overflow-wrap: break-word; }
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-1);
+}
+
+.card:hover,
+.card:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-2);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card { transition: border-color 150ms ease, box-shadow 150ms ease; }
 }
 
 .card a { text-decoration: none; color: inherit; display: block; }
@@ -139,21 +202,32 @@ body { overflow-wrap: break-word; }
   color: var(--text);
 }
 
-.chip[aria-pressed="true"] { background: var(--accent); color: #1a1523; border-color: var(--accent); }
+.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
-.filters { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1.25rem; }
+.chip:hover, .chip:focus-visible { border-color: var(--border-strong); }
 
-label { display: block; margin-bottom: 0.25rem; }
+.filters {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+  box-shadow: var(--shadow-1);
+}
+
+label { display: block; margin-bottom: var(--space-1); }
 
 input[type="text"], input[type="url"], input[type="password"], input[type="number"], select, textarea {
   width: 100%;
-  padding: 0.5rem;
+  padding: var(--space-2) var(--space-3);
   font: inherit;
   color: var(--text);
   background: var(--surface-2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
 }
+
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 
 textarea { min-height: 8rem; resize: vertical; }
 
@@ -191,9 +265,338 @@ textarea { min-height: 8rem; resize: vertical; }
 
 @media (max-width: 480px) {
   .site-controls { width: 100%; justify-content: flex-end; }
-  .gallery { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  .gallery { grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
+}
+
+/* ---------- Relationship map ---------- */
+
+/*
+ * Clips rather than hides. `display:none` or `visibility:hidden` would remove
+ * the text equivalent from the accessibility tree as well as from the screen,
+ * which is the exact opposite of what FR-021a asks for.
+ */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.map-help {
+  max-width: 60ch;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.relationship-cards {
+  display: grid;
+  gap: calc(var(--gap) * 1.5);
+}
+
+.relationship-card {
+  padding: var(--gap);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.relationship-card h2 { margin-top: 0; }
+
+.relationship-map-frame {
+  /* Horizontal scroll is the escape hatch for a very dense map on a narrow
+     screen; the viewBox already scales the drawing down to the container. */
+  overflow-x: auto;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+/*
+ * No min-width: the viewBox makes the drawing scale to whatever width is
+ * available, which is what keeps the page usable at 360px (SC-011).
+ */
+.relationship-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+}
+
+.map-edge-line {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 2;
+}
+
+.map-edge-label {
+  fill: var(--muted);
+  font-size: 13px;
+  /* The stroke is painted first and acts as a backdrop, so a label stays
+     legible where it crosses another line. paint-order is what makes the
+     stroke sit behind the glyphs instead of thickening them. */
+  stroke: var(--surface-2);
+  stroke-width: 4px;
+  paint-order: stroke fill;
+  pointer-events: none;
+}
+
+.map-node { cursor: grab; }
+.map-node:active { cursor: grabbing; }
+
+.map-node-ring {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 2;
+}
+
+.map-node:hover .map-node-ring,
+.map-node:focus-visible .map-node-ring {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.map-node-avatar { pointer-events: none; }
+
+.map-node-name {
+  fill: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  stroke: var(--surface-2);
+  stroke-width: 4px;
+  paint-order: stroke fill;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .map-node-ring { transition: stroke 120ms ease; }
+}
+
+/* ---------- Relationship map: drag affordances (US3) ---------- */
+
+.map-help kbd {
+  padding: 0.1rem 0.35rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+/* The drag enhancement only ever adds this class; without JavaScript the
+   cursor stays the default and the node is simply a link. */
+.map-node.is-dragging { cursor: grabbing; }
+
+.map-node.is-dragging .map-node-ring {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+/* Focus must be visible on an SVG link too, or keyboard repositioning is
+   unusable � you cannot aim arrow keys at a node you cannot see (FR-019). The ring adds
+   to the browser's own focus indicator; it never replaces it. */
+.map-node:focus-visible .map-node-ring {
+  stroke: var(--accent);
+  stroke-width: 4;
+}
+
+.map-node:focus-visible .map-node-name { fill: var(--accent); }
+
+/* ---------- Character profile (US8) ---------- */
+
+.profile-header {
+  display: grid;
+  /* Avatar column is fixed; the summary takes the rest. `minmax(0, 1fr)`
+     rather than `1fr` so long unbroken text cannot force the grid wider than
+     the viewport. */
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: calc(var(--gap) * 1.5);
+  align-items: start;
+  margin-bottom: calc(var(--gap) * 2);
+}
+
+.profile-avatar-image {
+  display: block;
+  width: 220px;
+  height: 220px;
+  object-fit: cover;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.profile-summary h1 { margin-top: 0; }
+.profile-summary .summary-block { margin-top: var(--gap); }
+.profile-summary .summary-block h2 { font-size: 1.05rem; }
+
+/* Stacking below the avatar's own width: at that point the two columns would
+   each be too narrow to read. The markup is already in reading order, so the
+   single column needs no reordering. */
+@media (max-width: 640px) {
+  .profile-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-avatar-image {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    max-width: 220px;
+  }
+}
+
+.story-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--gap);
+}
+
+.story {
+  padding: var(--gap);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.story > summary {
+  cursor: pointer;
+  /* The default marker is kept: it is the only affordance telling a visitor
+     the extract continues. */
+}
+
+.story-title { font-weight: 600; font-size: 1.05rem; }
+
+.story-extract {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+}
+
+/* Once expanded the extract would repeat the opening of the body verbatim. */
+.story[open] .story-extract { display: none; }
+
+.story-body { margin-top: var(--gap); }
+.story-body p { margin: 0 0 0.75rem; max-width: 70ch; }
+
+.story-permalink { font-size: 0.85rem; }
+
+/* ---------- Destructive actions (US5) ---------- */
+
+/*
+ * Destructive controls are distinguished by colour AND by an outline, not by
+ * colour alone: colour on its own is invisible to a visitor who cannot
+ * perceive it, which is exactly the visitor least able to recover from
+ * pressing the wrong button.
+ */
+.danger-zone {
+  margin-top: calc(var(--gap) * 2);
+  padding: var(--gap);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+}
+
+.button-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 2px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button-danger:hover,
+.button-danger:focus-visible {
+  background: var(--danger);
+  /* Dark text on the light danger fill: the inverse keeps AA contrast. */
+  color: #2a0d0d;
+}
+
+.link-danger { color: var(--danger); }
+
+.admin-list { line-height: 1.9; }
+
+.admin-return {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+
+.admin-return:hover,
+.admin-return:focus-visible { border-color: var(--accent); }
+
+/* ---------- Admin chrome (US7) ---------- */
+
+/* The admin pages share the public token system rather than having a look of
+   their own: an admin screen that is visually orphaned is one nobody notices
+   is broken. */
+.admin-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  margin-bottom: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.admin-nav a {
+  padding: var(--space-2) var(--space-3);
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.admin-nav a:hover,
+.admin-nav a:focus-visible { background: var(--surface-2); }
+
+.flash {
+  padding: var(--space-3) var(--gap);
+  margin-bottom: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+}
+
+ul.field-errors {
+  padding: var(--space-3) var(--gap) var(--space-3) var(--space-6);
+  margin-bottom: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--danger);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+}
+
+button {
+  font: inherit;
+  padding: var(--space-2) var(--gap);
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover, button:focus-visible { filter: brightness(1.08); }
+
+/* The header's small controls opt out of the primary button treatment. */
+.nsfw-apply, .link-button {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  font-weight: 400;
 }

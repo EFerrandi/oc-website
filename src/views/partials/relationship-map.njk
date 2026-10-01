@@ -1,0 +1,79 @@
+{#
+  One relationship map, rendered entirely server-side.
+
+  The structure below is a contract, not an implementation detail: the drag
+  enhancement in /js/relationship-map.js locates edges by `data-from` /
+  `data-to` and nodes by `data-node`, and the integration tests assert the
+  shape directly. See contracts/relationship-map.md before changing it.
+
+  Two ordering rules are load-bearing:
+    * `.map-edges` is emitted before `.map-nodes`, because SVG has no z-index
+      and paints in document order — reversing them would draw lines across
+      the avatars.
+    * the text equivalent follows the <svg>, so assistive technology meets it
+      in the same place as the drawing it replaces.
+#}
+
+{% macro relationshipMap(layout, rating, title) %}
+  {% set mapId = "map-" + rating %}
+
+  <svg class="relationship-map"
+       viewBox="0 0 {{ layout.width | round(2) }} {{ layout.height | round(2) }}"
+       role="group"
+       aria-labelledby="{{ mapId }}-title"
+       data-map="{{ rating }}">
+    <title id="{{ mapId }}-title">{{ title }}</title>
+
+    <defs>
+      {# One clip path serves every avatar: it is resolved in each node's own
+         user space, which the node's translate has already moved into place. #}
+      <clipPath id="{{ mapId }}-clip">
+        <circle cx="0" cy="0" r="{{ layout.nodes[0].r if layout.nodes.length else 0 }}"></circle>
+      </clipPath>
+    </defs>
+
+    <g class="map-edges">
+      {% for edge in layout.edges %}
+        <g class="map-edge" data-edge="{{ edge.id }}" data-from="{{ edge.fromId }}" data-to="{{ edge.toId }}">
+          <path class="map-edge-line"
+                d="M {{ edge.fromX | round(2) }} {{ edge.fromY | round(2) }}{% if edge.curveOffset %} Q {{ edge.controlX | round(2) }} {{ edge.controlY | round(2) }}{% else %} L{% endif %} {{ edge.toX | round(2) }} {{ edge.toY | round(2) }}"></path>
+          <text class="map-edge-label"
+                x="{{ edge.labelX | round(2) }}"
+                y="{{ edge.labelY | round(2) }}"
+                text-anchor="middle"
+                dominant-baseline="middle">{{ edge.label | truncate(24, true, "…") }}<title>{{ edge.label }}</title></text>
+        </g>
+      {% endfor %}
+    </g>
+
+    <g class="map-nodes">
+      {% for node in layout.nodes %}
+        <a class="map-node"
+           data-node="{{ node.id }}"
+           href="/characters/{{ node.slug }}"
+           transform="translate({{ node.x | round(2) }},{{ node.y | round(2) }})"
+           aria-label="{{ node.name }}">
+          <image class="map-node-avatar"
+                 href="{{ node.avatarUrl }}"
+                 x="{{ -node.r }}" y="{{ -node.r }}"
+                 width="{{ node.r * 2 }}" height="{{ node.r * 2 }}"
+                 preserveAspectRatio="xMidYMid slice"
+                 clip-path="url(#{{ mapId }}-clip)"
+                 aria-hidden="true"></image>
+          <circle class="map-node-ring" cx="0" cy="0" r="{{ node.r }}"></circle>
+          <text class="map-node-name"
+                x="0" y="{{ node.r + 16 }}"
+                text-anchor="middle">{{ node.name }}</text>
+        </a>
+      {% endfor %}
+    </g>
+  </svg>
+
+  {# FR-021a. `visually-hidden` clips rather than hiding: `display:none` would
+     remove this from the accessibility tree along with the screen. #}
+  <ul class="visually-hidden map-text-equivalent">
+    {% for edge in layout.edges %}
+      <li>{{ edge.fromName }} — {{ edge.label }} — {{ edge.toName }}</li>
+    {% endfor %}
+  </ul>
+{% endmacro %}

@@ -109,6 +109,50 @@ Two rules look inconsistent and are deliberate:
 Tags, sins and virtues, genders, artists and designers are stored once and
 referenced, so renaming one updates every page at the same time.
 
+## The relationship map
+
+`/relationships` draws each character as their avatar, joined by a line to
+every character they are related to, with the relationship written at the
+middle of the line. There are two maps: one for SFW relationships and one for
+NSFW relationships, which is empty until you opt in.
+
+The layout is computed **on the server**, by a pure function in
+`src/lib/graph-layout.js`. That is a deliberate constraint, not an incidental
+one:
+
+- The map arrives already drawn. It is complete and readable with JavaScript
+  disabled, blocked, or still loading.
+- The same data always produces the same arrangement. The function imports
+  nothing — no clock, no randomness, no environment — and a unit test asserts
+  that at the source level, so a force-directed layout cannot be substituted
+  later without the test failing.
+- Characters are placed to reduce the number of lines that cross, and never
+  worse than the obvious alphabetical arrangement. A cast whose relationships
+  form a tree is drawn with no crossings at all.
+- Unrelated groups are drawn in separate regions rather than interleaved,
+  because adjacency on a shared ring reads as meaning.
+
+A node is only ever drawn for a character who is an endpoint of a relationship
+you are allowed to see. This matters more than it sounds: a node carries a
+name and an avatar, so emitting one for a hidden character would disclose them
+even though the image itself would 404.
+
+### Moving things around
+
+`src/public/js/relationship-map.js` adds dragging, and nothing else.
+
+| Input | Effect |
+|---|---|
+| Drag an avatar (mouse, pen or touch) | Moves it; its lines and labels follow |
+| <kbd>Tab</kbd> | Focuses the next avatar |
+| Arrow keys | Moves the focused avatar a small step |
+| <kbd>Shift</kbd> + arrow keys | Moves it a larger step |
+| Click or <kbd>Enter</kbd> | Opens that character's page |
+
+Rearranging is never saved — not to the server, not to a cookie, not to local
+storage. Reloading restores the default layout, and a unit test scans the
+script to keep it that way.
+
 ## Scripts
 
 | Command | What it does |
