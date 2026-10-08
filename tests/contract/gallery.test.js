@@ -165,3 +165,26 @@ test('the collection header shows the fixed heading, introduction and visible co
   const one = await request(app).get('/?gender=Male');
   assert.match(one.text, /class="collection-count"[^>]*>\s*1 character\s*</, 'singular count follows filters');
 });
+
+test('the results bar shows the visible count next to chips, with and without filters', async (t) => {
+  const { app } = withApp(t);
+  const bar = (html) => html.match(/<div class="results-bar"[\s\S]*?<\/div>/)?.[0];
+  const tileCount = (html) => (html.match(/class="card character-tile"/g) ?? []).length;
+  const shown = (html) => Number(bar(html)?.match(/class="results-count"[^>]*>\s*Showing (\d+) characters?/)?.[1]);
+
+  const all = await request(app).get('/');
+  assert.ok(bar(all.text), 'results bar present without filters');
+  assert.equal(shown(all.text), tileCount(all.text));
+  assert.doesNotMatch(bar(all.text), /Clear all/, 'no clear-all without active filters');
+
+  const filtered = await request(app).get('/?gender=Male');
+  const b = bar(filtered.text);
+  assert.equal(shown(filtered.text), tileCount(filtered.text));
+  assert.equal(shown(filtered.text), 1);
+  assert.match(b, /aria-label="Remove gender filter: Male"/, 'chips sit in the same bar as the count');
+  assert.match(b, /Clear all/);
+
+  const none = await request(app).get('/?tag=cute&gender=Male');
+  assert.equal(tileCount(none.text), 0);
+  assert.equal(shown(none.text), 0, 'empty results still report a zero count');
+});

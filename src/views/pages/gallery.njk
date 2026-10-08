@@ -14,8 +14,9 @@
 
     {% include "partials/filters.njk" %}
 
-    {% if activeFilters.length %}
-      <div class="results-bar">
+    <div class="results-bar">
+      <p class="results-count">Showing {{ characters.length }} character{{ "" if characters.length == 1 else "s" }}</p>
+      {% if activeFilters.length %}
         <p class="results-label">Active filters:</p>
         <ul class="chips active-filters">
           {% for f in activeFilters %}
@@ -28,8 +29,8 @@
           {% endfor %}
         </ul>
         <a class="clear-filters" href="/">Clear all</a>
-      </div>
-    {% endif %}
+      {% endif %}
+    </div>
 
     {% if characters.length %}
       <ul class="gallery character-grid">

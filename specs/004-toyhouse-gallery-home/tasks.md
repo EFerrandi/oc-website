@@ -133,3 +133,9 @@
 3. Add US2 filtering improvements and validate no-JavaScript behavior.
 4. Add US3 header and count, then rerun NSFW checks.
 5. Complete polish, manual quickstart checks, and the full test suite.
+
+---
+
+## Phase 7: Convergence
+
+- [X] T028 Render the visible-character count in the results bar of `src/views/pages/gallery.njk` next to the active-filter chips and "Clear all" (results bar shown whenever results or filters are displayed, count derived only from `characters.length`), style it in `src/public/css/main.css`, and extend `tests/contract/gallery.test.js` to assert the results-bar count matches rendered tiles with and without filters per US2/AC4, FR-007, contracts/home-gallery.md section 3 (partial)
