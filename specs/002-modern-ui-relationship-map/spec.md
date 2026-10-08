@@ -84,11 +84,11 @@ A visitor opens the relationship page and the avatars are already laid out so th
 
 **Why this priority**: Without a sensible default the map is a tangle and User Story 1 fails in practice. It is separable because a simple arrangement still delivers a working map.
 
-**Independent Test**: Load the relationship page for a seeded cast and count line crossings; confirm the count is at or below the count produced by a naive arrangement of the same cast, and that the arrangement is the same every time the same data is loaded.
+**Independent Test**: Load the relationship page for a seeded cast and count line crossings; confirm the selected arrangement has the lowest count among the deterministic layouts evaluated, is no worse than the naive arrangement, and is identical every time the same data is loaded.
 
 **Acceptance Scenarios**:
 
-1. **Given** a cast whose relationships can be drawn without any crossing lines, **When** the page loads, **Then** no two lines cross.
+1. **Given** a cast with several deterministic candidate layouts, **When** the page loads, **Then** the system uses an evaluated layout with the fewest crossings; a crossing-free result is preferred but is not required.
 2. **Given** the same set of characters and relationships, **When** the page is loaded twice, **Then** the default arrangement is identical both times.
 3. **Given** a cast split into several groups with no relationships between the groups, **When** the page loads, **Then** the groups are placed apart from one another rather than overlapping.
 4. **Given** the map is viewed on a narrow phone-width screen, **When** the page loads, **Then** the whole map is reachable, avatars do not overlap each other, and labels remain readable.
@@ -200,7 +200,7 @@ A visitor opens a character's page and immediately sees the character's avatar a
 
 #### Default arrangement
 
-- **FR-012**: System MUST arrange the avatars by default so that the number of crossing lines is at or below the number produced by a naive arrangement of the same characters.
+- **FR-012**: System MUST select a default arrangement with the fewest crossing lines among its evaluated deterministic candidate layouts, preferring a crossing-free arrangement when one is evaluated; if a crossing-free arrangement is not found, the system MUST still choose the lowest-crossing evaluated layout and MUST NOT do worse than the naive name-ordered arrangement.
 - **FR-013**: System MUST produce the same default arrangement every time for the same set of characters and relationships.
 - **FR-014**: System MUST place groups of characters that have no relationships between them apart from one another.
 - **FR-015**: System MUST keep every avatar and every label inside the map area in the default arrangement, at screen widths from small phone to wide desktop.
@@ -265,7 +265,7 @@ No new stored data is introduced. Map arrangements are computed for display only
 
 - **SC-001**: 100% of relationships a visitor is allowed to see appear on the map as a line between the correct two avatars, with the correct label at the line's midpoint.
 - **SC-002**: 0 NSFW character names, avatars, labels, or positions appear anywhere in the relationship page delivered to a visitor who has not opted in.
-- **SC-003**: For a cast whose relationships can be drawn without crossings, the default arrangement produces 0 crossings; for every other cast it produces no more crossings than a naive arrangement of the same cast.
+- **SC-003**: The default arrangement has the lowest crossing count among the deterministic candidate layouts evaluated for the cast. A crossing-free layout is preferred when one is found, but 0 crossings are not required; the chosen layout never has more crossings than the naive name-ordered arrangement.
 - **SC-004**: The default arrangement for a given set of characters and relationships is identical across 10 consecutive loads.
 - **SC-005**: A visitor can move any avatar and see all its lines and labels follow it, with no line left detached, in 100% of attempts.
 - **SC-006**: The relationship page shows every visible relationship as a drawn line with its label even when no interactive behaviour is available.
@@ -288,4 +288,5 @@ No new stored data is introduced. Map arrangements are computed for display only
 - The admin home page already exists and is the correct destination for the return control.
 - "More modern" is judged against the existing site, not against a named design system; no third-party visual framework is assumed to be required.
 - Relationship labels are short phrases; very long labels are shortened or wrapped in the map view while the full text remains available.
+- Manual browser interaction checks target PC users; touch-specific manual checks are not required.
 - Existing responsive and accessibility requirements from feature 001 (FR-033, FR-034) continue to apply and are tightened here rather than replaced.

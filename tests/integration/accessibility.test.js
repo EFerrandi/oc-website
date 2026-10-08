@@ -18,6 +18,17 @@ const PASSWORD = 'correct-horse-battery-staple';
 
 const PUBLIC_PAGES = ['/', '/artists', '/relationships', '/characters/aria', '/stories/a-quiet-morning'];
 
+function contrastRatio(foreground, background) {
+  const luminance = (color) => {
+    const channels = color.match(/[a-f\d]{2}/gi).map((channel) => parseInt(channel, 16) / 255)
+      .map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  };
+  const first = luminance(foreground);
+  const second = luminance(background);
+  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+}
+
 function setup(t) {
   const ctx = createTestApp();
   const ids = seedFixtures(ctx.db);
@@ -66,6 +77,12 @@ test('the stylesheet cannot force horizontal scrolling', () => {
 test('anything that can overflow is allowed to scroll within itself', () => {
   // A wide table must scroll inside its own box rather than pushing the page.
   assert.match(css, /overflow-x:\s*auto/, 'wide content scrolls within its container');
+  assert.match(css, /grid-template-columns:\s*repeat\(auto-fill/, 'gallery columns adapt to available width');
+  assert.doesNotMatch(
+    css,
+    /(?:html|body)\s*\{[^}]*overflow-x:\s*hidden/s,
+    'page-level clipping must not conceal overflow',
+  );
 });
 
 test('keyboard focus is always visible', () => {
@@ -150,6 +167,29 @@ test('admin screens are responsive too', async (t) => {
       `${page} must be usable on a phone too`,
     );
   }
+
+  const characterForm = await agent.get('/admin/characters/new');
+  const controls = [...characterForm.text.matchAll(/<(input|select|textarea)\b[^>]*>/g)]
+    .filter((match) => !/<input\b[^>]*type="hidden"/.test(match[0]));
+  for (const control of controls) {
+    const id = control[0].match(/\sid="([^"]+)"/)?.[1];
+    const hasExplicitLabel = id && characterForm.text.includes(`for="${id}"`);
+    const labelStart = characterForm.text.lastIndexOf('<label', control.index);
+    const labelEnd = characterForm.text.lastIndexOf('</label>', control.index);
+
+    assert.ok(
+      hasExplicitLabel || labelStart > labelEnd,
+      `admin form control needs an associated label: ${control[0]}`,
+    );
+  }
+  assert.match(css, /\.field-errors\s*\{|ul\.field-errors\s*\{/, 'admin validation feedback keeps a dedicated style');
+  assert.match(css, /:focus-visible\s*\{[^}]*outline:\s*\d+px/s, 'admin controls retain visible keyboard focus');
+
+  const formToken = characterForm.text.match(/name="_csrf" value="([^"]+)"/)?.[1];
+  assert.ok(formToken, 'the admin form provides its CSRF token');
+  const invalid = await agent.post('/admin/characters').type('form').send({ _csrf: formToken });
+  assert.equal(invalid.status, 422, 'invalid admin input renders its validation state');
+  assert.match(invalid.text, /class="field-errors"/, 'validation feedback remains visible in the response');
 });
 
 test('form fields are labelled', async (t) => {
@@ -157,16 +197,18 @@ test('form fields are labelled', async (t) => {
 
   const res = await request(app).get('/').set('Cookie', NSFW_ON);
 
-  const inputs = [...res.text.matchAll(/<input[^>]*>/g)].map((m) => m[0])
-    .filter((tag) => !/type="(hidden|submit)"/.test(tag));
+  const controls = [...res.text.matchAll(/<(input|select|textarea)\b[^>]*>/g)]
+    .filter((match) => !/<input\b[^>]*type="(?:hidden|submit)"/.test(match[0]));
 
-  for (const input of inputs) {
-    const id = input.match(/\sid="([^"]+)"/);
-    const wrapped = /class="inline"/.test(res.text);
+  for (const control of controls) {
+    const id = control[0].match(/\sid="([^"]+)"/)?.[1];
+    const hasExplicitLabel = id && res.text.includes(`for="${id}"`);
+    const labelStart = res.text.lastIndexOf('<label', control.index);
+    const labelEnd = res.text.lastIndexOf('</label>', control.index);
 
     assert.ok(
-      (id && res.text.includes(`for="${id[1]}"`)) || wrapped,
-      `input needs a label: ${input}`,
+      hasExplicitLabel || labelStart > labelEnd,
+      `form control needs an associated label: ${control[0]}`,
     );
   }
 });
@@ -177,9 +219,16 @@ test('form fields are labelled', async (t) => {
 
 // T084 � FR-036, SC-013.
 test('every page still exposes its landmarks, headings and alternative text', async (t) => {
-  const { app } = setup(t);
+  const { app, ids } = setup(t);
 
-  for (const page of ['/', '/characters/aria', '/relationships', '/artists']) {
+  for (const page of [
+    '/',
+    '/characters/aria',
+    '/images/' + ids.imageSfwA,
+    '/stories/a-quiet-morning',
+    '/relationships',
+    '/artists',
+  ]) {
     const res = await request(app).get(page);
     assert.equal(res.status, 200, `${page} should render`);
 
@@ -218,4 +267,30 @@ test('the visually-hidden utility clips rather than hiding', () => {
   assert.ok(!/display:\s*none/.test(rule), 'display:none hides the text from screen readers too');
   assert.ok(!/visibility:\s*hidden/.test(rule), 'visibility:hidden hides the text from screen readers too');
   assert.match(rule, /clip-path:|clip:/, 'the utility must clip the element rather than hide it');
+});
+
+// T004 — feature 003: lock in the selected palette before applying it.
+test('the shared stylesheet declares the selected purple palette', () => {
+  const root = css.match(/:root\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+  const token = (name) => root.match(new RegExp(`${name}:\\s*(#[a-f\\d]{6})`, 'i'))?.[1];
+
+  for (const color of ['#DD92FB', '#8D79FF', '#3E4EB4']) {
+    assert.ok(
+      root.toLowerCase().includes(color.toLowerCase()),
+      `the shared :root token block must declare ${color}`,
+    );
+  }
+
+  const surface = token('--surface-2');
+  assert.ok(contrastRatio(token('--brand-light'), surface) >= 4.5, 'body-size accent text meets AA contrast');
+  assert.ok(contrastRatio(token('--accent-ink'), token('--brand-medium')) >= 4.5, 'button labels meet AA contrast');
+  assert.ok(contrastRatio(token('--brand-medium'), surface) >= 3, 'focus and map strokes meet non-text contrast');
+  assert.ok(contrastRatio(token('--border-strong'), surface) >= 3, 'interactive control boundaries meet non-text contrast');
+
+  assert.match(css, /:focus-visible\s*\{[^}]*outline:\s*\d+px/s, 'the palette refresh must keep a visible focus ring');
+  assert.match(css, /overflow-wrap:\s*break-word/, 'long names and URLs must continue to wrap');
+
+  const hiddenRule = css.match(/\.visually-hidden\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.match(hiddenRule, /clip-path:|clip:/, 'visually hidden text must remain in the accessibility tree');
+  assert.doesNotMatch(hiddenRule, /display:\s*none/, 'the text equivalent must not be removed from the accessibility tree');
 });

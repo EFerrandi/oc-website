@@ -26,7 +26,8 @@
   <fieldset class="field">
     <legend>Job titles (at least one)</legend>
     {% for i in range(0, 5) %}
-      <input type="text" name="job_title" value="{{ titles[i] or '' }}" placeholder="Job title {{ i + 1 }}">
+      <label for="job-title-{{ i }}">Job title {{ i + 1 }}</label>
+      <input type="text" id="job-title-{{ i }}" name="job_title" value="{{ titles[i] or '' }}" placeholder="Job title {{ i + 1 }}">
     {% endfor %}
   </fieldset>
 

@@ -53,6 +53,13 @@ npm start
 The site is at <http://localhost:3000>, and the admin sign-in link sits in the
 header, immediately to the right of the NSFW checkbox.
 
+## Visual theme
+
+The interface uses dark-neutral backgrounds with purple accents. Its shared
+palette is light purple `#DD92FB`, medium purple `#8D79FF`, and dark purple
+`#3E4EB4`; text and interactive states use the lighter or medium values where
+contrast is required.
+
 For development with automatic restarts:
 
 ```bash

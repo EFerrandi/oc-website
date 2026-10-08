@@ -74,7 +74,7 @@ curl.exe -s -D - -o NUL http://localhost:3000/relationships | Select-String -Pat
 node --test tests/unit/graph-layout.test.js
 ```
 
-**Expected**: passes, including the assertions that a forest lays out with 0 crossings and that no input produces more crossings than the name-ordered arrangement.
+**Expected**: passes, including assertions that the chosen arrangement is the lowest-crossing candidate evaluated, that a crossing-free layout is preferred when found, and that no input produces more crossings than the name-ordered arrangement. Zero crossings are not required in every case.
 
 ## Scenario 5 — Dragging (FR-016 to FR-019)
 
@@ -87,7 +87,7 @@ In a browser at `/relationships`:
 5. Click an avatar without moving. **Expected**: navigates to the character page.
 6. Drag an avatar and release over empty space. **Expected**: **no** navigation — the drag was not a click.
 7. Reload. **Expected**: the default arrangement returns.
-8. Repeat 1–3 by touch on a phone-width viewport.
+The manual interaction checks in this scenario target PC users: desktop mouse/pointer input and keyboard input. Touch-specific validation is not required.
 
 ## Scenario 6 — Character profile (FR-037 to FR-043)
 
@@ -97,7 +97,7 @@ Open `/characters/aria`.
 
 Without JavaScript: the story still expands — `<details>` is native.
 
-At 320 px width: avatar and summary stack; no horizontal scrolling.
+At 320 px width: avatar and summary stack; no horizontal scrolling. For the manual browser check, use a PC browser's responsive viewport mode rather than a phone or touch device.
 
 Without the opt-in, confirm the NSFW story leaks nothing:
 

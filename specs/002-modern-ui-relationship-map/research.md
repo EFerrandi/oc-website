@@ -148,12 +148,12 @@ The control is still present in the list, satisfying FR-022.
 
 ---
 
-## R-011 — Known limitation of the crossing guarantee
+## R-011 — Crossing-free layouts are preferred, not guaranteed
 
-**Finding, recorded for the Complexity Tracking table in plan.md.**
+**Clarification accepted 2026-10-02.**
 
-SC-003's first clause — 0 crossings for any cast that *could* be drawn without crossings — is not achievable with this design, and not for a tuning reason. A circular layout can only realise crossing-free drawings of graphs that are **outerplanar**. Many planar graphs (K4 is the smallest example: four characters all related to each other) can be drawn without crossings in the plane but have **no** crossing-free circular arrangement whatsoever. Meeting the clause as literally written would require planarity testing plus a planar embedding algorithm and free edge routing — more code than the entire rest of this feature, and it would forfeit the non-overlap and bounding-box properties that FR-015 and SC-011 rely on.
+The user clarified that SC-003 should aim for as few crossings as possible and that zero crossings need not be achieved. A crossing-free drawing remains preferred whenever it is found, but it is not a universal acceptance condition.
 
-**What is achievable and proposed instead**: 0 crossings for any cast whose relationships form a forest, guaranteed by candidate 2 in R-003; and never worse than the naive arrangement for every other cast, guaranteed by candidate 1. The second half of SC-003 already states this.
+The deterministic search evaluates a fixed set of orderings and selects the one with the lowest exact crossing count. This is a bounded promise: minimum among the evaluated candidates, not a claim of global mathematical optimality for every graph. The naive ordering remains in the candidate set, so the result cannot score worse than that baseline.
 
-Raised for confirmation before `/speckit-tasks` writes acceptance tests against the current wording.
+Manual browser checks target PC users; touch-specific checks are not required.

@@ -88,13 +88,13 @@ The `sfw` and `nsfw` layouts are computed from disjoint edge sets and do not sha
 
 **Verified by**: a unit test running the same input repeatedly and asserting deep equality.
 
-### I-M4 — Chosen arrangement never scores worse than naive
+### I-M4 — Chosen arrangement minimises crossings among evaluated candidates
 
-The ordering selected for a component has a crossing count less than or equal to that of the name-ordered arrangement of the same component.
+The selected ordering has the lowest crossing count among the deterministic candidate orderings evaluated for a component. A crossing-free ordering is preferred when found, but zero crossings are not required. The selected ordering also never scores worse than the name-ordered arrangement.
 
-**Why**: this is FR-012 and the second half of SC-003.
+**Why**: this is FR-012 and SC-003.
 
-**Enforcement point**: the naive ordering is always included in the candidate set, and the candidate with the lowest exact crossing count is selected (R-003, R-004). The property therefore holds by construction and cannot be broken by tuning the other candidates.
+**Enforcement point**: the naive ordering is always included in the candidate set, and the candidate with the lowest exact crossing count is selected (R-003, R-004). Thus selection is optimal within the evaluated candidate set and never worse than naive by construction.
 
 ### I-M5 — Everything stays inside the viewBox
 

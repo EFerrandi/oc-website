@@ -1,10 +1,20 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import request from 'supertest';
 
 import { createTestApp, NSFW_ON } from '../helpers/app.js';
 import { NSFW_MARKERS, seedFixtures } from '../helpers/fixtures.js';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const css = fs.readFileSync(path.resolve(here, '../../src/public/css/main.css'), 'utf8');
+const mapTemplate = fs.readFileSync(
+  path.resolve(here, '../../src/views/partials/relationship-map.njk'),
+  'utf8',
+);
 
 /**
  * Constitution Principle I — Content Rating Safety (NON-NEGOTIABLE), applied
@@ -278,6 +288,13 @@ test('each map is followed by a visually hidden list of its relationships', asyn
   assert.match(joined, /Aria/);
   assert.match(joined, /Brann/);
   assert.match(joined, /childhood friends/);
+});
+
+test('the relationship map keeps its visual and keyboard focus hooks', () => {
+  assert.match(css, /\.map-edge-label\s*\{/, 'edge labels need a shared, readable style');
+  assert.match(css, /\.map-node:focus-visible/, 'focused avatar links need a visible node-specific ring');
+  assert.match(mapTemplate, /class="visually-hidden map-text-equivalent"/, 'the accessible text equivalent must remain in the map markup');
+  assert.match(css, /\.visually-hidden\s*\{[^}]*clip(?:-path)?:/s, 'the text equivalent must be clipped for visual hiding');
 });
 
 // T023 � FR-007: an empty map is a message, not a blank frame.

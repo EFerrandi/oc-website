@@ -196,10 +196,4 @@ Re-evaluated after the artifacts above were written.
 
 ## Complexity Tracking
 
-No constitutional violations require justification. One specification feasibility issue is recorded here because it must be resolved before `/speckit-tasks` produces acceptance tests against it.
-
-| Item | Issue | Resolution proposed |
-|------|-------|---------------------|
-| **SC-003**, first clause | As written it promises 0 crossings for *any* cast that could be drawn without crossings — that is planarity testing plus planar embedding, a substantially larger algorithm than the rest of this feature combined, and it cannot be met by a circular layout at all (many planar graphs have no crossing-free circular arrangement). | Narrow the guarantee to what is both achievable and honest: **0 crossings for any cast whose relationships form a forest** (no cycles) — which a depth-first circular ordering guarantees and which covers realistic OC casts — and **never more crossings than the naive name-ordered arrangement** for every other cast. The second half of SC-003 already says this and is kept verbatim. |
-
-This is a wording correction to a success criterion, not a scope reduction the user requested. **It is raised for confirmation rather than applied unilaterally.**
+No constitutional violations require justification. The crossing objective was clarified on 2026-10-02: select the lowest-crossing arrangement among the deterministic layouts evaluated, preferring zero crossings when found but not requiring it. The name-ordered arrangement remains among the candidates, so the chosen arrangement cannot score worse than that baseline.

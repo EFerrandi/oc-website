@@ -32,8 +32,8 @@ layoutGraph(nodes, edges) → { nodes, edges, width, height, crossings }
 |-----------|-------------|
 | Imports nothing; no clock, randomness, I/O, or environment access | I-M3 |
 | Identical input → byte-identical output | FR-013, SC-004 |
-| `crossings` ≤ crossings of the name-ordered arrangement | FR-012, I-M4 |
-| `crossings === 0` when the edge set forms a forest | SC-003 (achievable clause, R-011) |
+| Lowest crossing count among the deterministic layouts evaluated; zero crossings is preferred when found but not required | FR-012, SC-003 |
+| Never worse than the name-ordered arrangement | I-M4 |
 | Connected components placed in disjoint regions | FR-014 |
 | Every node and label inside `[0,width] × [0,height]` | FR-015, I-M5 |
 | Empty input → `{ nodes: [], edges: [], crossings: 0 }` with a valid box | Empty-state edge case |

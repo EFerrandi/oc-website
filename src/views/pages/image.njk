@@ -5,6 +5,7 @@
 
 {% block content %}
   <article class="image-view">
+    <h1>{{ image.altText }}</h1>
     {# The original at its natural dimensions. This page is the no-JS
        destination of every preview anchor (FR-065). #}
     <img src="/media/{{ image.id }}/full" alt="{{ image.altText }}"
