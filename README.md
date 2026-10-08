@@ -60,6 +60,11 @@ palette is light purple `#DD92FB`, medium purple `#8D79FF`, and dark purple
 `#3E4EB4`; text and interactive states use the lighter or medium values where
 contrast is required.
 
+The home page is a character listing in the spirit of ToyHouse (no ToyHouse
+branding or assets): a collection header with the visible-character count, a
+compact filter bar whose tag and sin/virtue sections expand on demand, removable
+chips for active filters, and a grid of identical square thumbnails.
+
 For development with automatic restarts:
 
 ```bash

@@ -131,7 +131,7 @@ test('filtering narrows results rather than merely reordering them', async (t) =
   const one = await request(ctx.app).get('/?tag=tag-0');
   const two = await request(ctx.app).get('/?tag=tag-0&tag=tag-1');
 
-  const count = (body) => (body.match(/class="card"/g) ?? []).length;
+  const count = (body) => (body.match(/class="card(?:\s[^"]*)?"/g) ?? []).length;
 
   assert.ok(count(all.text) > count(one.text), 'one tag narrows the list');
   assert.ok(

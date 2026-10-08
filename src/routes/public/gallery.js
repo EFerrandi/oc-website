@@ -12,6 +12,33 @@ function asList(value) {
   return [...new Set(raw.map((v) => String(v).trim()).filter(Boolean))];
 }
 
+function filterHref({ gender, tags, traits }) {
+  const params = new URLSearchParams();
+  if (gender) params.append('gender', gender);
+  for (const tag of tags) params.append('tag', tag);
+  for (const trait of traits) params.append('trait', trait);
+  const query = params.toString();
+  return query ? `/?${query}` : '/';
+}
+
+/**
+ * One removable chip per applied value. Each link keeps every other filter, so
+ * removing a filter works as an ordinary link without JavaScript.
+ */
+export function buildActiveFilters(applied) {
+  const without = (kind, value) => ({
+    gender: kind === 'gender' ? null : applied.gender,
+    tags: kind === 'tag' ? applied.tags.filter((v) => v !== value) : applied.tags,
+    traits: kind === 'trait' ? applied.traits.filter((v) => v !== value) : applied.traits,
+  });
+
+  return [
+    ...(applied.gender ? [{ kind: 'gender', label: applied.gender }] : []),
+    ...applied.tags.map((label) => ({ kind: 'tag', label })),
+    ...applied.traits.map((label) => ({ kind: 'trait', label })),
+  ].map((filter) => ({ ...filter, removeHref: filterHref(without(filter.kind, filter.label)) }));
+}
+
 export function galleryRouter() {
   const router = Router();
 
@@ -43,6 +70,7 @@ export function galleryRouter() {
         gender,
         any: tags.length > 0 || traits.length > 0 || Boolean(gender),
       },
+      activeFilters: buildActiveFilters({ gender, tags, traits }),
     });
   });
 

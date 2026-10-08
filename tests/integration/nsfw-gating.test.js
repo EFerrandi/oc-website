@@ -113,3 +113,17 @@ test('NSFW media is hidden with 404, never 403', async (t) => {
     );
   }
 });
+
+// Feature 004: the home-page count is derived from the rating-filtered list.
+test('the home-page count matches the visible tiles and leaks nothing before opt-in', async (t) => {
+  const { app } = withApp(t);
+
+  const res = await request(app).get('/');
+  const tiles = (res.text.match(/<li class="[^"]*character-tile/g) ?? []).length;
+  const count = Number(res.text.match(/class="collection-count"[^>]*>\s*(\d+) characters?/)?.[1]);
+
+  assert.equal(count, tiles, 'the count describes exactly the rendered tiles');
+  for (const marker of NSFW_MARKERS) {
+    assert.ok(!res.text.includes(marker), `the home page leaked ${JSON.stringify(marker)}`);
+  }
+});

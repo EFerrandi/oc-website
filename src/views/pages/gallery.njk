@@ -2,36 +2,63 @@
 
 {% block title %}Characters — OC Gallery{% endblock %}
 
+{% set kindLabels = {"gender": "gender", "tag": "tag", "trait": "sin or virtue"} %}
+
 {% block content %}
-  <h1>Characters</h1>
+  <div class="home-gallery">
+    <header class="collection-header">
+      <h1>Original characters</h1>
+      <p class="collection-intro">Browse every character, their artwork, stories and connections.</p>
+      <p class="collection-count">{{ characters.length }} character{{ "" if characters.length == 1 else "s" }}</p>
+    </header>
 
-  {% include "partials/filters.njk" %}
+    {% include "partials/filters.njk" %}
 
-  {% if characters.length %}
-    <ul class="gallery">
-      {% for c in characters %}
-        <li class="card">
-          <a href="/characters/{{ c.slug }}">
-            {% if c.avatar %}
-              <img class="card-thumb" src="/media/{{ c.avatar.id }}" alt="{{ c.avatar.altText }}" loading="lazy">
-            {% else %}
-              {# No image visible at this rating level — the character is still
-                 listed, with the neutral placeholder (FR-014). #}
-              <img class="card-thumb" src="/img/placeholder-avatar.svg" alt="No image available for {{ c.name }}">
-            {% endif %}
+    {% if activeFilters.length %}
+      <div class="results-bar">
+        <p class="results-label">Active filters:</p>
+        <ul class="chips active-filters">
+          {% for f in activeFilters %}
+            <li>
+              <a class="chip active-filter" href="{{ f.removeHref }}"
+                 aria-label="Remove {{ kindLabels[f.kind] }} filter: {{ f.label }}">
+                {{ f.label }} <span aria-hidden="true">×</span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+        <a class="clear-filters" href="/">Clear all</a>
+      </div>
+    {% endif %}
 
-            <div class="card-body">
-              <p class="card-name">{{ c.name }}</p>
-              {% if c.jobTitles.length %}
-                <p class="card-jobs">{{ c.jobTitles | join(" · ") }}</p>
+    {% if characters.length %}
+      <ul class="gallery character-grid">
+        {% for c in characters %}
+          <li class="card character-tile">
+            <a href="/characters/{{ c.slug }}">
+              {% if c.avatar %}
+                <img class="card-thumb" src="/media/{{ c.avatar.id }}" alt="{{ c.avatar.altText }}" loading="lazy">
+              {% else %}
+                {# No image visible at this rating level — the character is still
+                   listed, with the neutral placeholder (FR-014). #}
+                <img class="card-thumb" src="/img/placeholder-avatar.svg" alt="No image available for {{ c.name }}">
               {% endif %}
-            </div>
-          </a>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="empty-state">No characters match the current filters.</p>
-    <p><a class="chip" href="/">Clear all filters</a></p>
-  {% endif %}
+
+              <div class="card-body">
+                <p class="card-name">{{ c.name }}</p>
+                {% if c.jobTitles.length %}
+                  <p class="card-jobs">{{ c.jobTitles | join(" · ") }}</p>
+                {% endif %}
+              </div>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="empty-state">
+        <p>No characters match the current filters.</p>
+        <p><a class="chip" href="/">Clear all filters</a></p>
+      </div>
+    {% endif %}
+  </div>
 {% endblock %}

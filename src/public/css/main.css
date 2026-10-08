@@ -869,3 +869,172 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .chip { transition: none; }
 }
+
+/* ---------- Home gallery (feature 004) ---------- */
+
+/* A ToyHouse-style listing in spirit only: collection header, compact filter
+   bar, then a dense grid of identical square thumbnails. */
+.home-gallery { display: grid; gap: var(--space-5); }
+
+.collection-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--gap);
+  padding: var(--space-5) var(--space-5) var(--gap);
+  background:
+    linear-gradient(120deg, rgb(62 78 180 / 0.35), rgb(141 121 255 / 0.12) 55%, transparent),
+    var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.collection-header h1 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  color: var(--brand-light);
+}
+
+.collection-intro { flex-basis: 100%; order: 3; margin: 0; color: var(--muted); }
+
+.collection-count {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+}
+
+.filters.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--gap);
+  margin: 0;
+}
+
+.filter-bar .field { margin: 0; }
+.filter-gender {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: min(100%, 14rem);
+}
+.filter-gender label { margin: 0; font-weight: 600; }
+.filter-gender select { width: auto; min-width: 0; flex: 1; }
+
+.filter-section {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.filter-section[open] { flex-basis: 100%; }
+
+.filter-bar summary {
+  padding: var(--space-2) var(--space-3);
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+
+.filter-bar summary:hover { color: var(--brand-light); }
+.filter-bar summary:focus-visible { outline: 3px solid var(--brand-light); outline-offset: 2px; }
+
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.filter-options .facet-group-label {
+  flex-basis: 100%;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.filter-options .inline { margin: 0; }
+.filter-apply { margin-left: auto; }
+
+.results-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.results-label { margin: 0; color: var(--muted); font-size: var(--text-sm); }
+.active-filters { margin: 0; }
+
+.active-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-color: var(--brand-medium);
+}
+
+.active-filter:hover,
+.active-filter:focus-visible {
+  background: var(--brand-medium);
+  color: var(--accent-ink);
+}
+
+.active-filter:focus-visible { outline: 3px solid var(--brand-light); outline-offset: 2px; }
+
+.clear-filters { font-size: var(--text-sm); font-weight: 600; }
+
+/* Dense, identical tiles: two columns even at 320px, then as many ~160px
+   columns as fit. */
+.gallery.character-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+@media (min-width: 480px) {
+  .gallery.character-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+.character-tile { border-radius: var(--radius); }
+.character-tile a { height: 100%; border-radius: inherit; }
+.character-tile a:focus-visible { outline: 3px solid var(--brand-light); outline-offset: 3px; }
+
+.character-tile .card-thumb {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  object-fit: cover;
+}
+
+.character-tile .card-body { padding: var(--space-2) var(--space-3) var(--space-3); text-align: center; }
+.character-tile .card-name { font-size: var(--text-base); overflow-wrap: anywhere; }
+.character-tile .card-jobs { overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .character-tile { transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease; }
+  .character-tile:hover,
+  .character-tile:focus-within { transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .character-tile,
+  .character-tile:hover,
+  .character-tile:focus-within { transform: none; transition: none; }
+}
+
+@media (max-width: 640px) {
+  .collection-header { padding: var(--gap); }
+  .filter-apply { margin-left: 0; }
+}
