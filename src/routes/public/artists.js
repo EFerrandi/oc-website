@@ -10,8 +10,8 @@ export function artistsRouter() {
     const db = req.app.locals.db;
     const showNsfw = res.locals.showNsfw;
 
-    // Only artists with at least one visible image are listed, so opting out
-    // never leaves behind an empty group that hints at hidden artwork.
+    // Design-credit-only artists remain discoverable, but hidden artwork does
+    // not leave behind an empty group that hints at NSFW content.
     const artists = listArtistsWithVisibleImages(db, { showNsfw }).map((artist) => ({
       ...artist,
       images: listImagesByArtist(db, artist.id, { showNsfw }),

@@ -151,7 +151,7 @@ test('the NSFW toggle works without JavaScript', async (t) => {
 test('admin screens are responsive too', async (t) => {
   const hash = await hashPassword(PASSWORD);
   const ctx = createTestApp({ adminPasswordHash: hash });
-  seedFixtures(ctx.db);
+  const ids = seedFixtures(ctx.db);
   t.after(() => ctx.cleanup());
 
   const agent = request.agent(ctx.app);
@@ -167,6 +167,16 @@ test('admin screens are responsive too', async (t) => {
       `${page} must be usable on a phone too`,
     );
   }
+
+  const dashboard = await agent.get('/admin');
+  assert.match(dashboard.text, /role="img"[^>]*aria-labelledby="statistics-chart-title statistics-chart-description"/);
+  assert.match(dashboard.text, /<caption>Image-character associations by character and content rating<\/caption>/);
+
+  const characterEdit = await agent.get(`/admin/characters/${ids.aria}/edit`);
+  assert.match(characterEdit.text, /<label for="avatar_crop_x">/);
+  assert.match(characterEdit.text, /<input type="range" id="avatar_crop_x"[^>]*min="0" max="100"/);
+  assert.ok(characterEdit.text.includes(`method="post" action="/admin/characters/${ids.aria}"`),
+    'crop controls save through a regular form without JavaScript');
 
   const characterForm = await agent.get('/admin/characters/new');
   const controls = [...characterForm.text.matchAll(/<(input|select|textarea)\b[^>]*>/g)]
@@ -211,6 +221,20 @@ test('form fields are labelled', async (t) => {
       `form control needs an associated label: ${control[0]}`,
     );
   }
+});
+
+test('gender and tag bubbles remain native, labelled, and keyboard operable', async (t) => {
+  const { app } = setup(t);
+  const response = await request(app).get('/');
+  const form = response.text.match(/<form[^>]*class="[^"]*filter-bar[^"]*"[\s\S]*?<\/form>/)?.[0];
+
+  assert.ok(form, 'filter form exists without requiring JavaScript');
+  assert.match(form, /<input type="radio" name="gender"/, 'gender is a native single-choice control');
+  assert.match(form, /<input type="checkbox" name="tag"/, 'tags are native multi-choice controls');
+  assert.match(form, /<label class="choice-bubble">[\s\S]*?<input[\s\S]*?<span>[\s\S]*?<\/label>/);
+  assert.match(css, /\.choice-bubble input:checked \+ span/, 'selected state is visually distinct');
+  assert.match(css, /\.choice-bubble input:focus-visible \+ span/, 'keyboard focus is visible');
+  assert.match(css, /\.bubble-group \.bubble-options\s*\{[^}]*flex-wrap:\s*wrap/s, 'bubbles wrap on narrow screens');
 });
 
 /* ------------------------------------------------------------------ *

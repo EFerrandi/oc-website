@@ -30,9 +30,8 @@ function exists(db, table, id) {
  * Validate the non-image character fields.
  *
  * Every field named here is mandatory by invariant: a character cannot exist
- * without a designer, a gender, terms of use, explicit permissions, at least
+ * without an artist, a gender, terms of use, explicit permissions, at least
  * one job title, or at least one tag (FR-041, invariants I-1â€¦I-3).
- * Traits alone are optional (FR-060).
  */
 export function validateCharacterInput(db, body) {
   const fieldErrors = {};
@@ -49,8 +48,8 @@ export function validateCharacterInput(db, body) {
   const genderId = Number(body.gender_id);
   if (!exists(db, 'gender', genderId)) fieldErrors.gender_id = 'Choose a gender from the managed list.';
 
-  const designerId = Number(body.designer_id);
-  if (!exists(db, 'designer', designerId)) fieldErrors.designer_id = 'Choose a designer.';
+  const artistId = Number(body.artist_id);
+  if (!exists(db, 'artist', artistId)) fieldErrors.artist_id = 'Choose an artist.';
 
   const jobTitles = asTextList(body['job_title[]'] ?? body.job_title);
   if (jobTitles.length === 0) fieldErrors.job_title = 'Add at least one job title.';
@@ -60,9 +59,6 @@ export function validateCharacterInput(db, body) {
   else if (tagIds.some((id) => !exists(db, 'tag', id))) fieldErrors.tag_id = 'One of the chosen tags no longer exists.';
 
   // Traits are optional by design â€” zero is valid and must never error.
-  const traitIds = asIdList(body['trait_id[]'] ?? body.trait_id)
-    .filter((id) => exists(db, 'trait', id));
-
   for (const key of ['can_regift', 'can_retrade', 'can_resell']) {
     if (body[key] !== '0' && body[key] !== '1') {
       fieldErrors[key] = 'Choose either allowed or not allowed.';
@@ -78,10 +74,9 @@ export function validateCharacterInput(db, body) {
     shortDescription,
     termsOfUse,
     genderId,
-    designerId,
+    artistId,
     jobTitles,
     tagIds,
-    traitIds,
     canRegift: body.can_regift === '1',
     canRetrade: body.can_retrade === '1',
     canResell: body.can_resell === '1',
@@ -113,7 +108,7 @@ function validateImageInput(db, body, file) {
   };
 }
 
-function replaceLinks(db, characterId, { jobTitles, tagIds, traitIds }) {
+function replaceLinks(db, characterId, { jobTitles, tagIds }) {
   db.prepare('DELETE FROM character_job_title WHERE character_id = ?').run(characterId);
   jobTitles.forEach((title, index) => {
     db.prepare('INSERT INTO character_job_title (character_id, title, position) VALUES (?, ?, ?)')
@@ -125,10 +120,6 @@ function replaceLinks(db, characterId, { jobTitles, tagIds, traitIds }) {
     db.prepare('INSERT INTO character_tag (character_id, tag_id) VALUES (?, ?)').run(characterId, tagId);
   }
 
-  db.prepare('DELETE FROM character_trait WHERE character_id = ?').run(characterId);
-  for (const traitId of traitIds) {
-    db.prepare('INSERT INTO character_trait (character_id, trait_id) VALUES (?, ?)').run(characterId, traitId);
-  }
 }
 
 /**
@@ -165,13 +156,13 @@ export async function createCharacterWithImage(db, { body, file, config }) {
       const characterId = Number(db.prepare(`
         INSERT INTO character
           (name, slug, gender_id, short_description, terms_of_use,
-           can_regift, can_retrade, can_resell, designer_id, created_at, updated_at)
+           can_regift, can_retrade, can_resell, artist_id, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         characterInput.name, slug, characterInput.genderId, characterInput.shortDescription,
         characterInput.termsOfUse, characterInput.canRegift ? 1 : 0,
         characterInput.canRetrade ? 1 : 0, characterInput.canResell ? 1 : 0,
-        characterInput.designerId, at, at,
+        characterInput.artistId, at, at,
       ).lastInsertRowid);
 
       db.prepare('INSERT INTO character_image (character_id, image_id, position) VALUES (?, ?, 0)')
@@ -194,6 +185,21 @@ export async function createCharacterWithImage(db, { body, file, config }) {
 
 export function updateCharacter(db, id, body) {
   const input = validateCharacterInput(db, body);
+  const crop = {};
+  for (const [field, minimum, maximum, fallback] of [
+    ['avatar_crop_x', 0, 100, 50],
+    ['avatar_crop_y', 0, 100, 50],
+    ['avatar_crop_zoom', 1, 3, 1],
+  ]) {
+    const raw = body[field];
+    const value = raw === undefined || raw === '' ? fallback : Number(raw);
+    if (!Number.isFinite(value) || value < minimum || value > maximum) {
+      throw new ValidationError('The character could not be saved', {
+        [field]: `Choose a value between ${minimum} and ${maximum}.`,
+      });
+    }
+    crop[field] = value;
+  }
 
   const current = db.prepare('SELECT id, name FROM character WHERE id = ?').get(id);
   if (!current) throw new ValidationError('Character not found');
@@ -228,13 +234,15 @@ export function updateCharacter(db, id, body) {
     db.prepare(`
       UPDATE character SET
         name = ?, gender_id = ?, short_description = ?, terms_of_use = ?,
-        can_regift = ?, can_retrade = ?, can_resell = ?, designer_id = ?,
-        avatar_image_id = ?, updated_at = ?
+        can_regift = ?, can_retrade = ?, can_resell = ?, artist_id = ?,
+        avatar_image_id = ?, avatar_crop_x = ?, avatar_crop_y = ?,
+        avatar_crop_zoom = ?, updated_at = ?
       WHERE id = ?
     `).run(
       input.name, input.genderId, input.shortDescription, input.termsOfUse,
       input.canRegift ? 1 : 0, input.canRetrade ? 1 : 0, input.canResell ? 1 : 0,
-      input.designerId, avatarImageId, new Date().toISOString(), id,
+      input.artistId, avatarImageId, crop.avatar_crop_x, crop.avatar_crop_y,
+      crop.avatar_crop_zoom, new Date().toISOString(), id,
     );
 
     replaceLinks(db, id, input);

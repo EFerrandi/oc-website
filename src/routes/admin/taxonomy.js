@@ -13,10 +13,8 @@ import {
 
 const LABELS = {
   tags: 'Tags',
-  traits: 'Sins & Virtues',
   genders: 'Genders',
   artists: 'Artists',
-  designers: 'Designers',
 };
 
 function render(req, res, kind, extra = {}) {
@@ -32,7 +30,6 @@ function render(req, res, kind, extra = {}) {
     kind,
     kindLabel: LABELS[kind],
     hasUrl: spec.hasUrl,
-    hasTraitKind: spec.hasTraitKind,
     blocksDelete: spec.inUseBlocksDelete,
     items,
     ...extra,

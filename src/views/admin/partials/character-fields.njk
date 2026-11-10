@@ -8,15 +8,18 @@
     <input type="text" id="name" name="name" value="{{ values.name or '' }}" required>
   </div>
 
-  <div class="field">
-    <label for="gender_id">Gender</label>
-    <select id="gender_id" name="gender_id" required>
-      <option value="">Choose…</option>
+  <fieldset class="field bubble-group">
+    <legend>Gender</legend>
+    <div class="bubble-options">
       {% for g in options.genders %}
-        <option value="{{ g.id }}" {% if ((values.gender_id or '') | string) == (g.id | string) or values.genderId == g.id %}selected{% endif %}>{{ g.name }}</option>
+        <label class="choice-bubble">
+          <input type="radio" name="gender_id" value="{{ g.id }}"
+                 {% if ((values.gender_id or '') | string) == (g.id | string) or values.genderId == g.id %}checked{% endif %} required>
+          <span>{{ g.name }}</span>
+        </label>
       {% endfor %}
-    </select>
-  </div>
+    </div>
+  </fieldset>
 
   <div class="field">
     <label for="short_description">Short description</label>
@@ -48,38 +51,26 @@
   </fieldset>
 
   <div class="field">
-    <label for="designer_id">Designer</label>
-    <select id="designer_id" name="designer_id" required>
+    <label for="artist_id">Artist</label>
+    <select id="artist_id" name="artist_id" required>
       <option value="">Choose…</option>
-      {% for d in options.designers %}
-        <option value="{{ d.id }}" {% if ((values.designer_id or '') | string) == (d.id | string) or values.designerId == d.id %}selected{% endif %}>{{ d.name }}</option>
+      {% for artist in options.artists %}
+        <option value="{{ artist.id }}" {% if ((values.artist_id or '') | string) == (artist.id | string) or values.artistId == artist.id %}selected{% endif %}>{{ artist.name }}</option>
       {% endfor %}
     </select>
   </div>
 
-  <fieldset class="field">
+  <fieldset class="field bubble-group">
     <legend>Tags (at least one required)</legend>
-    {% for t in options.tags %}
-      <label class="inline">
-        <input type="checkbox" name="tag_id" value="{{ t.id }}" {% if t.id in selectedTagIds %}checked{% endif %}>
-        {{ t.name }}
-      </label>
-    {% endfor %}
+    <div class="bubble-options">
+      {% for t in options.tags %}
+        <label class="choice-bubble">
+          <input type="checkbox" name="tag_id" value="{{ t.id }}" {% if t.id in selectedTagIds %}checked{% endif %}>
+          <span>{{ t.name }}</span>
+        </label>
+      {% endfor %}
+    </div>
     <label for="new_tags">Or add new tags (comma separated)</label>
     <input type="text" id="new_tags" name="new_tags" placeholder="mischievous, winged">
-  </fieldset>
-
-  <fieldset class="field">
-    <legend>Sins &amp; Virtues (optional)</legend>
-    {% for t in options.traits %}
-      <label class="inline">
-        <input type="checkbox" name="trait_id" value="{{ t.id }}" {% if t.id in selectedTraitIds %}checked{% endif %}>
-        {{ t.name }} ({{ t.kind }})
-      </label>
-    {% endfor %}
-    <label for="new_sins">Or add new sins (comma separated)</label>
-    <input type="text" id="new_sins" name="new_sins">
-    <label for="new_virtues">Or add new virtues (comma separated)</label>
-    <input type="text" id="new_virtues" name="new_virtues">
   </fieldset>
 {% endmacro %}

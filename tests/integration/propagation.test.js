@@ -32,8 +32,8 @@ async function tokenFrom(agent, path) {
 }
 
 /**
- * Artists, designers and taxonomy names are stored once and referenced, never
- * copied. A rename must therefore be visible everywhere at once — if any page
+ * Artist and taxonomy names are stored once and referenced, never copied. A
+ * rename must therefore be visible everywhere at once — if any page
  * shows the old name, something has duplicated the value.
  */
 test('renaming an artist updates every credit that references it', async (t) => {
@@ -57,22 +57,22 @@ test('renaming an artist updates every credit that references it', async (t) => 
   }
 
   assert.equal(
-    db.prepare('SELECT COUNT(*) n FROM artist').get().n, 2,
+    db.prepare('SELECT COUNT(*) n FROM artist').get().n, 4,
     'renaming must not create a second artist row',
   );
 });
 
-test('renaming a designer updates every character that references it', async (t) => {
+test('renaming an artist design credit updates every character that references it', async (t) => {
   const { app, ids } = await withApp(t);
   const agent = await signIn(app);
 
-  const token = await tokenFrom(agent, '/admin/designers');
-  const res = await agent.post(`/admin/designers/${ids.designer}`).type('form')
+  const token = await tokenFrom(agent, '/admin/artists');
+  const res = await agent.post(`/admin/artists/${ids.designer}`).type('form')
     .send({ _csrf: token, name: 'New Designer Name', websiteUrl: 'https://example.com/designer' });
 
   assert.equal(res.status, 303);
 
-  const page = await request(app).get('/characters/aria');
+  const page = await agent.get('/characters/aria');
   assert.ok(page.text.includes('New Designer Name'), 'the character page shows the new name');
 });
 
@@ -96,13 +96,13 @@ test('renaming a tag updates the filter controls and the character page together
   assert.ok(filtered.text.includes('Aria'), 'filtering by the new name still works');
 });
 
-test('renaming a sin or virtue updates every character carrying it', async (t) => {
+test('renaming a former sin/virtue tag updates every character carrying it', async (t) => {
   const { app, ids } = await withApp(t);
   const agent = await signIn(app);
 
-  const token = await tokenFrom(agent, '/admin/traits');
-  const res = await agent.post(`/admin/traits/${ids.traitPatience}`).type('form')
-    .send({ _csrf: token, name: 'Forbearance', traitKind: 'virtue' });
+  const token = await tokenFrom(agent, '/admin/tags');
+  const res = await agent.post(`/admin/tags/${ids.tagPatience}`).type('form')
+    .send({ _csrf: token, name: 'Forbearance' });
 
   assert.equal(res.status, 303);
 

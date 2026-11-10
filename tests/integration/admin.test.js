@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 
 import request from 'supertest';
@@ -104,7 +105,7 @@ test('creating a character with its first image works end to end', async (t) => 
     .field('can_regift', '1')
     .field('can_retrade', '0')
     .field('can_resell', '0')
-    .field('designer_id', String(ids.designer))
+    .field('artist_id', String(ids.designer))
     .field('tag_id', String(ids.tagCute))
     .field('image_alt_text', 'Nimbus drifting over a hill')
     .field('image_artist_id', String(ids.artistA))
@@ -144,7 +145,7 @@ test('a character submitted without a tag is rejected, naming the field', async 
     .field('can_regift', '1')
     .field('can_retrade', '0')
     .field('can_resell', '0')
-    .field('designer_id', String(ids.designer))
+    .field('artist_id', String(ids.designer))
     .field('image_alt_text', 'A tagless figure')
     .field('image_artist_id', String(ids.artistA))
     .attach('image', png, 'tagless.png');
@@ -189,6 +190,176 @@ test('an image must name an artist and link at least one character', async (t) =
   assert.equal(noCharacter.status, 422);
 });
 
+test('an image upload can create its credited artist atomically', async (t) => {
+  const { app, db, ids } = await withApp(t);
+  const agent = await signIn(app);
+  const token = await tokenFrom(agent, '/admin/images/new');
+  const before = {
+    artists: db.prepare('SELECT COUNT(*) n FROM artist').get().n,
+    images: db.prepare('SELECT COUNT(*) n FROM image').get().n,
+  };
+
+  const res = await agent.post('/admin/images')
+    .field('_csrf', token)
+    .field('alt_text', 'A newly credited image')
+    .field('artist_id', 'new')
+    .field('new_artist_name', 'New Upload Artist')
+    .field('new_artist_website_url', 'https://artist.example/')
+    .field('character_id', String(ids.aria))
+    .attach('image', await pngBuffer(), 'new-artist.png');
+
+  assert.equal(res.status, 303, `upload should redirect, got ${res.status}`);
+  const artist = db.prepare('SELECT id, website_url FROM artist WHERE name = ?').get('New Upload Artist');
+  assert.ok(artist);
+  assert.equal(artist.website_url, 'https://artist.example/');
+  assert.equal(
+    db.prepare('SELECT artist_id FROM image WHERE alt_text = ?').get('A newly credited image').artist_id,
+    artist.id,
+  );
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM artist').get().n, before.artists + 1);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM image').get().n, before.images + 1);
+});
+
+test('invalid inline artist data leaves no artist or image behind', async (t) => {
+  const { app, db, ids } = await withApp(t);
+  const agent = await signIn(app);
+  const token = await tokenFrom(agent, '/admin/images/new');
+  const before = {
+    artists: db.prepare('SELECT COUNT(*) n FROM artist').get().n,
+    images: db.prepare('SELECT COUNT(*) n FROM image').get().n,
+  };
+
+  const duplicate = await agent.post('/admin/images')
+    .field('_csrf', token)
+    .field('alt_text', 'Duplicate artist attempt')
+    .field('artist_id', 'new')
+    .field('new_artist_name', '  dara designs ')
+    .field('character_id', String(ids.aria))
+    .attach('image', await pngBuffer(), 'duplicate.png');
+  assert.equal(duplicate.status, 422);
+  assert.ok(duplicate.text.includes('already exists'));
+
+  const badUrl = await agent.post('/admin/images')
+    .field('_csrf', token)
+    .field('alt_text', 'Bad URL artist attempt')
+    .field('artist_id', 'new')
+    .field('new_artist_name', 'Bad URL Artist')
+    .field('new_artist_website_url', 'javascript:alert(1)')
+    .field('character_id', String(ids.aria))
+    .attach('image', await pngBuffer(), 'bad-url.png');
+  assert.equal(badUrl.status, 422);
+  assert.ok(badUrl.text.includes('full web address'));
+
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM artist').get().n, before.artists);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM image').get().n, before.images);
+});
+
+test('a failed image-record transaction rolls back its artist and removes both files', async (t) => {
+  const { app, db, ids, config } = await withApp(t);
+  const agent = await signIn(app);
+  const token = await tokenFrom(agent, '/admin/images/new');
+  const before = {
+    artists: db.prepare('SELECT COUNT(*) n FROM artist').get().n,
+    images: db.prepare('SELECT COUNT(*) n FROM image').get().n,
+  };
+  db.exec(`
+    CREATE TRIGGER reject_test_upload BEFORE INSERT ON image
+    WHEN NEW.alt_text = 'Force transaction rollback'
+    BEGIN SELECT RAISE(ABORT, 'forced test failure'); END
+  `);
+
+  const response = await agent.post('/admin/images')
+    .field('_csrf', token)
+    .field('alt_text', 'Force transaction rollback')
+    .field('artist_id', 'new')
+    .field('new_artist_name', 'Rolled Back Artist')
+    .field('character_id', String(ids.aria))
+    .attach('image', await pngBuffer(), 'rollback.png');
+
+  assert.equal(response.status, 500);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM artist').get().n, before.artists);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM image').get().n, before.images);
+  assert.deepEqual(fs.readdirSync(config.uploadDir).filter((name) => name !== 'previews'), []);
+  assert.deepEqual(fs.readdirSync(config.previewDir), []);
+});
+
+test('admin dashboard reports association-based image totals and percentages', async (t) => {
+  const { app } = await withApp(t);
+  const anonymous = await request(app).get('/admin');
+  assert.equal(anonymous.status, 303);
+  const agent = await signIn(app);
+  const dashboard = await agent.get('/admin');
+
+  assert.equal(dashboard.status, 200);
+  assert.match(dashboard.text, /All character-image associations: <strong>4<\/strong>/);
+  assert.match(dashboard.text, /SFW: <strong>50%<\/strong>/);
+  assert.match(dashboard.text, /NSFW: <strong>50%<\/strong>/);
+  assert.match(dashboard.text, /Images per character/);
+  assert.match(dashboard.text, /role="img"[^>]*aria-labelledby="statistics-chart-title statistics-chart-description"/);
+  assert.match(dashboard.text, /Image-character associations by character/);
+  assert.match(dashboard.text, /<caption>Image-character associations by character and content rating<\/caption>/);
+});
+
+test('avatar crop values persist per character and reject out-of-range values', async (t) => {
+  const { app, db, ids } = await withApp(t);
+  const agent = await signIn(app);
+  const page = await agent.get(`/admin/characters/${ids.aria}/edit`);
+  const token = page.text.match(/name="_csrf" value="([^"]+)"/)[1];
+  assert.match(page.text, /type="range" id="avatar_crop_x"/, 'crop position has a native control');
+  assert.match(page.text, /data-crop-preview/, 'crop preview is present');
+  const beforeImage = db.prepare('SELECT file_name FROM image WHERE id = ?').get(ids.imageSfwA).file_name;
+  const fields = {
+    _csrf: token, name: 'Aria', gender_id: String(ids.genderFemale),
+    short_description: 'Aria short description', job_title: ['Cartographer', 'Archivist'],
+    terms_of_use: 'Do not resell without permission.', can_regift: '1', can_retrade: '0',
+    can_resell: '0', artist_id: String(ids.designer), tag_id: String(ids.tagCute),
+    avatar_image_id: String(ids.imageSfwA), avatar_crop_x: '25', avatar_crop_y: '70',
+    avatar_crop_zoom: '1.5',
+  };
+  const saved = await agent.post(`/admin/characters/${ids.aria}`).type('form').send(fields);
+  assert.equal(saved.status, 303, `crop save should redirect, got ${saved.status}`);
+  assert.deepEqual(
+    { ...db.prepare('SELECT avatar_crop_x AS x, avatar_crop_y AS y, avatar_crop_zoom AS zoom FROM character WHERE id = ?')
+      .get(ids.aria) },
+    { x: 25, y: 70, zoom: 1.5 },
+  );
+
+  db.prepare('INSERT INTO character_image (character_id, image_id, position) VALUES (?, ?, 1)')
+    .run(ids.brann, ids.imageSfwA);
+  const brannPage = await agent.get(`/admin/characters/${ids.brann}/edit`);
+  const brannToken = brannPage.text.match(/name="_csrf" value="([^"]+)"/)[1];
+  const sharedImageCrop = await agent.post(`/admin/characters/${ids.brann}`).type('form').send({
+    _csrf: brannToken,
+    name: 'Brann',
+    gender_id: String(ids.genderMale),
+    short_description: 'Brann short description',
+    terms_of_use: 'Do not resell without permission.',
+    can_regift: '1',
+    can_retrade: '0',
+    can_resell: '0',
+    artist_id: String(ids.designerNoSite),
+    job_title: 'Blacksmith',
+    tag_id: String(ids.tagFeral),
+    avatar_image_id: String(ids.imageSfwA),
+    avatar_crop_x: '80',
+    avatar_crop_y: '10',
+    avatar_crop_zoom: '2',
+  });
+  assert.equal(sharedImageCrop.status, 303);
+  assert.deepEqual(
+    { ...db.prepare('SELECT avatar_crop_x AS x, avatar_crop_y AS y, avatar_crop_zoom AS zoom FROM character WHERE id = ?')
+      .get(ids.brann) },
+    { x: 80, y: 10, zoom: 2 },
+  );
+  assert.equal(db.prepare('SELECT avatar_crop_x FROM character WHERE id = ?').get(ids.aria).avatar_crop_x, 25);
+
+  const invalid = await agent.post(`/admin/characters/${ids.aria}`).type('form')
+    .send({ ...fields, avatar_crop_x: '101' });
+  assert.equal(invalid.status, 422);
+  assert.equal(db.prepare('SELECT avatar_crop_x FROM character WHERE id = ?').get(ids.aria).avatar_crop_x, 25);
+  assert.equal(db.prepare('SELECT file_name FROM image WHERE id = ?').get(ids.imageSfwA).file_name, beforeImage);
+});
+
 test('a relationship cannot point at itself or duplicate an existing pair', async (t) => {
   const { app, ids } = await withApp(t);
   const agent = await signIn(app);
@@ -210,7 +381,7 @@ test('a relationship cannot point at itself or duplicate an existing pair', asyn
   assert.ok(reverse.text.includes('already have a relationship'));
 });
 
-test('an in-use tag cannot be deleted through the admin, but an in-use trait can', async (t) => {
+test('all character labels are tags and in-use tags cannot be deleted', async (t) => {
   const { app, db, ids } = await withApp(t);
   const agent = await signIn(app);
 
@@ -221,12 +392,7 @@ test('an in-use tag cannot be deleted through the admin, but an in-use trait can
   assert.equal(tagRes.status, 409, 'an in-use tag must be refused with 409');
   assert.equal(db.prepare('SELECT COUNT(*) n FROM tag WHERE id = ?').get(ids.tagCute).n, 1);
 
-  const traitToken = await tokenFrom(agent, '/admin/traits');
-  const traitRes = await agent.post(`/admin/traits/${ids.traitGreed}/delete`).type('form')
-    .send({ _csrf: traitToken, confirm: 'delete' });
-
-  assert.equal(traitRes.status, 303, 'an in-use trait deletes successfully and detaches');
-  assert.equal(db.prepare('SELECT COUNT(*) n FROM trait WHERE id = ?').get(ids.traitGreed).n, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM tag WHERE id = ?').get(ids.tagGreed).n, 1);
 });
 
 test('deleting a character keeps shared content and removes exclusive content', async (t) => {

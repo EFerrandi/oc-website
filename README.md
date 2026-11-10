@@ -1,7 +1,7 @@
 # OC Website
 
 A self-hosted photo gallery for cataloguing original characters (OCs) — their
-artwork, stories, relationships, designers and terms of use.
+artwork, stories, relationships, artists and terms of use.
 
 The site has exactly two audiences: anonymous visitors, who browse, and a
 single admin, who adds and edits everything. There are no user accounts.
@@ -62,8 +62,8 @@ contrast is required.
 
 The home page is a character listing in the spirit of ToyHouse (no ToyHouse
 branding or assets): a collection header with the visible-character count, a
-compact filter bar whose tag and sin/virtue sections expand on demand, removable
-chips for active filters, and a grid of identical square thumbnails.
+compact filter bar with tappable gender and tag bubbles, removable chips for
+active filters, and a grid of identical square thumbnails.
 
 For development with automatic restarts:
 
@@ -106,20 +106,25 @@ required.
 
 ## Content model
 
-A character cannot exist without at least one image, one tag, one job title, a
-designer, permissions and terms of use. An image cannot exist without an artist
+A character cannot exist without at least one image, one tag, one job title, an
+artist, permissions and terms of use. An image cannot exist without an artist
 and alt text, and must be linked to at least one character. These are enforced
 in the database and in the service layer, not only in forms.
 
-Two rules look inconsistent and are deliberate:
+Taxonomy behavior:
 
 - Deleting a **tag** that is still in use is **refused** — tags are mandatory,
   so removing one could leave a character with none.
-- Deleting a **sin or virtue** that is still in use **succeeds** and simply
-  detaches it — these are optional, so a character with none is still valid.
+- Former sins and virtues are now ordinary reusable tags.
 
-Tags, sins and virtues, genders, artists and designers are stored once and
-referenced, so renaming one updates every page at the same time.
+Artists are stored once and used for both character design credits and image
+credits. Tags and genders are also stored once and referenced, so renaming an
+entry updates every page at the same time. Existing databases migrate
+forward-only: designer credits merge into artists, and old sins/virtues become
+tags. The admin dashboard reports overall and per-character SFW/NSFW image
+association totals and percentages, with an accessible SVG chart and table.
+Avatar crops are square, character-specific settings and never modify source
+image files.
 
 ## The relationship map
 

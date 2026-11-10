@@ -5,12 +5,27 @@ import request from 'supertest';
 
 import { createTestApp } from '../helpers/app.js';
 import { seedFixtures } from '../helpers/fixtures.js';
+import { hashPassword } from '../../src/services/auth.js';
+
+const PASSWORD = 'correct-horse-battery-staple';
 
 function withApp(t) {
   const ctx = createTestApp();
   seedFixtures(ctx.db);
   t.after(() => ctx.cleanup());
   return ctx;
+}
+
+async function adminApp(t) {
+  const hash = await hashPassword(PASSWORD);
+  const ctx = createTestApp({ adminPasswordHash: hash });
+  seedFixtures(ctx.db);
+  t.after(() => ctx.cleanup());
+  const agent = request.agent(ctx.app);
+  const login = await agent.get('/admin/login');
+  const token = login.text.match(/name="_csrf" value="([^"]+)"/)[1];
+  await agent.post('/admin/login').type('form').send({ _csrf: token, password: PASSWORD });
+  return { ...ctx, agent };
 }
 
 test('GET /characters/:slug renders every required section', async (t) => {
@@ -23,41 +38,38 @@ test('GET /characters/:slug renders every required section', async (t) => {
   assert.ok(res.text.includes('Aria short description'), 'short description');
   assert.ok(res.text.includes('Cartographer'), 'job titles');
   assert.ok(res.text.includes('cute'), 'tags');
-  assert.ok(res.text.includes('Virtues'), 'virtues heading');
-  assert.ok(res.text.includes('Patience'), 'virtue value');
-  assert.ok(res.text.includes('Do not resell without permission.'), 'terms of use');
-  assert.ok(res.text.includes('Dara Designs'), 'designer credit');
+  assert.ok(res.text.includes('Patience'), 'former sins and virtues render as tags');
+  assert.ok(!res.text.includes('Ownership'), 'ownership details are hidden from visitors');
+  assert.ok(!res.text.includes('Do not resell without permission.'), 'terms are hidden from visitors');
+  assert.match(res.text, /class="[^"]*\bprofile-tags\b/, 'tags use the profile tag area');
+  assert.ok(res.text.indexOf('profile-relationships') < res.text.indexOf('profile-stories'),
+    'relationships precede stories');
 });
 
-test('permissions render explicitly as allowed or not allowed', async (t) => {
-  const { app } = withApp(t);
-  const res = await request(app).get('/characters/aria');
+test('only admins see ownership and permissions at the end of the profile', async (t) => {
+  const { app, agent } = await adminApp(t);
+  const res = await agent.get('/characters/aria');
 
+  assert.ok(res.text.includes('Ownership'));
+  assert.ok(res.text.includes('Do not resell without permission.'));
   assert.ok(res.text.includes('Can be regifted'), 'regift permission labelled');
   assert.ok(res.text.includes('Can be retraded'), 'retrade permission labelled');
   assert.ok(res.text.includes('Can be resold'), 'resell permission labelled');
   assert.ok(res.text.includes('Allowed'), 'an allowed value renders as a word, not a blank');
   assert.ok(res.text.includes('Not allowed'), 'a denied value renders as a word, not a blank');
+  assert.ok(res.text.indexOf('profile-relationships') < res.text.indexOf('profile-stories'));
+  assert.ok(res.text.indexOf('ownership-block') > res.text.indexOf('profile-stories'));
 });
 
-test('a character with only virtues shows just that heading', async (t) => {
-  const { app } = withApp(t);
-  const res = await request(app).get('/characters/aria');
-
-  assert.ok(res.text.includes('Virtues'), 'populated heading shown');
-  assert.ok(!res.text.includes('<h3>Sins</h3>'), 'empty heading omitted');
-});
-
-test('designer with a website links out in a new tab; one without renders as text', async (t) => {
-  const { app } = withApp(t);
-
-  const withSite = await request(app).get('/characters/aria');
+test('artist design credit links out in a new tab for admins', async (t) => {
+  const { agent } = await adminApp(t);
+  const withSite = await agent.get('/characters/aria');
   assert.match(
     withSite.text,
     /<a href="https:\/\/dara\.example\/" target="_blank" rel="noopener noreferrer">Dara Designs<\/a>/,
   );
 
-  const withoutSite = await request(app).get('/characters/brann');
+  const withoutSite = await agent.get('/characters/brann');
   assert.ok(withoutSite.text.includes('Anon Designer'), 'name still shown');
   assert.ok(
     !withoutSite.text.includes('>Anon Designer</a>'),

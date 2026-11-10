@@ -34,7 +34,7 @@ async function seed() {
   const genderM = insert('INSERT INTO gender (name, created_at) VALUES (?, ?)', 'Male', at);
 
   const designer = insert(
-    'INSERT INTO designer (name, website_url, created_at, updated_at) VALUES (?, ?, ?, ?)',
+    'INSERT INTO artist (name, website_url, created_at, updated_at) VALUES (?, ?, ?, ?)',
     'Sample Designer', 'https://example.com/', at, at,
   );
   const artist = insert(
@@ -44,8 +44,8 @@ async function seed() {
 
   const tagCute = insert('INSERT INTO tag (name, created_at) VALUES (?, ?)', 'cute', at);
   const tagFeral = insert('INSERT INTO tag (name, created_at) VALUES (?, ?)', 'feral', at);
-  const sin = insert('INSERT INTO trait (name, kind, created_at, updated_at) VALUES (?, ?, ?, ?)', 'Greed', 'sin', at, at);
-  const virtue = insert('INSERT INTO trait (name, kind, created_at, updated_at) VALUES (?, ?, ?, ?)', 'Patience', 'virtue', at, at);
+  const sin = insert('INSERT INTO tag (name, created_at) VALUES (?, ?)', 'Greed', at);
+  const virtue = insert('INSERT INTO tag (name, created_at) VALUES (?, ?)', 'Patience', at);
 
   async function makeImage(label, hue, isNsfw) {
     const stem = `seed-${label}`;
@@ -85,7 +85,7 @@ async function seed() {
     const id = insert(`
       INSERT INTO character
         (name, slug, gender_id, short_description, terms_of_use,
-         can_regift, can_retrade, can_resell, designer_id, avatar_image_id, created_at, updated_at)
+         can_regift, can_retrade, can_resell, artist_id, avatar_image_id, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, 1, 0, 0, ?, ?, ?, ?)
     `, name, slug, genderId, `${name} is a sample character.`,
     'Please ask before using this character.', designer, avatarId, at, at);
@@ -109,8 +109,8 @@ async function seed() {
   link('INSERT INTO character_tag VALUES (?, ?)', brann, tagFeral);
   link('INSERT INTO character_tag VALUES (?, ?)', shadow, tagCute);
 
-  link('INSERT INTO character_trait VALUES (?, ?)', aria, virtue);
-  link('INSERT INTO character_trait VALUES (?, ?)', shadow, sin);
+  link('INSERT INTO character_tag VALUES (?, ?)', aria, virtue);
+  link('INSERT INTO character_tag VALUES (?, ?)', shadow, sin);
 
   link('INSERT INTO character_story VALUES (?, ?)', aria, story);
   link('INSERT INTO character_story VALUES (?, ?)', brann, story);

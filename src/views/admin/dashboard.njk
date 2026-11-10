@@ -12,6 +12,56 @@
     <li>{{ counts.relationships }} relationships</li>
   </ul>
 
+  <section class="admin-statistics" aria-labelledby="image-statistics-heading">
+    <h2 id="image-statistics-heading">Image statistics</h2>
+    <p>
+      All character-image associations: <strong>{{ imageStatistics.totals.total }}</strong>
+      (SFW {{ imageStatistics.totals.sfw }}, NSFW {{ imageStatistics.totals.nsfw }}).
+    </p>
+    <p>
+      SFW: <strong>{{ imageStatistics.percentages.sfw }}%</strong>
+      · NSFW: <strong>{{ imageStatistics.percentages.nsfw }}%</strong>
+    </p>
+
+    <div class="statistics-layout">
+      <svg class="statistics-chart" viewBox="0 0 42 42" role="img"
+           aria-labelledby="statistics-chart-title statistics-chart-description">
+        <title id="statistics-chart-title">Images per character</title>
+        <desc id="statistics-chart-description">
+          Pie chart showing each character's share of {{ imageStatistics.totals.total }} image-character associations.
+        </desc>
+        <circle class="statistics-chart-background" cx="21" cy="21" r="15.9155"></circle>
+        {% for slice in imageStatistics.chart %}
+          {% if slice.percentage > 0 %}
+            <circle class="statistics-slice statistics-color-{{ slice.colorIndex }}"
+                    cx="21" cy="21" r="15.9155"
+                    stroke-dasharray="{{ slice.percentage }} {{ 100 - slice.percentage }}"
+                    stroke-dashoffset="-{{ slice.offset }}"
+                    transform="rotate(-90 21 21)">
+              <title>{{ slice.name }}: {{ slice.total }} images</title>
+            </circle>
+          {% endif %}
+        {% endfor %}
+      </svg>
+
+      <table class="statistics-table">
+        <caption>Image-character associations by character and content rating</caption>
+        <thead><tr><th scope="col">Character</th><th scope="col">Total</th><th scope="col">SFW</th><th scope="col">NSFW</th></tr></thead>
+        <tbody>
+          {% for character in imageStatistics.characters %}
+            <tr>
+              <th scope="row">{{ character.name }}</th>
+              <td>{{ character.total }}</td><td>{{ character.sfw }}</td><td>{{ character.nsfw }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4">No characters yet.</td></tr>
+          {% endfor %}
+        </tbody>
+        <tfoot><tr><th scope="row">Total associations</th><td>{{ imageStatistics.totals.total }}</td><td>{{ imageStatistics.totals.sfw }}</td><td>{{ imageStatistics.totals.nsfw }}</td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
   <p><a class="chip" href="/admin/characters/new">Add a character</a></p>
   <p><a class="chip" href="/admin/images/new">Add an image</a></p>
   <p><a class="chip" href="/admin/stories/new">Add a story</a></p>

@@ -26,8 +26,18 @@
         {% for a in options.artists %}
           <option value="{{ a.id }}" {% if ((values.artist_id or '') | string) == (a.id | string) %}selected{% endif %}>{{ a.name }}</option>
         {% endfor %}
+        <option value="new" {% if values.artist_id == "new" %}selected{% endif %}>Add a new artist…</option>
       </select>
     </div>
+
+    <fieldset class="field">
+      <legend>New artist details (when “Add a new artist…” is selected)</legend>
+      <label for="new_artist_name">Artist name</label>
+      <input type="text" id="new_artist_name" name="new_artist_name" value="{{ values.new_artist_name or '' }}">
+      <label for="new_artist_website_url">Artist website (optional)</label>
+      <input type="url" id="new_artist_website_url" name="new_artist_website_url"
+             value="{{ values.new_artist_website_url or '' }}" placeholder="https://example.com">
+    </fieldset>
 
     <div class="field">
       <label for="short_description">Short description (optional)</label>

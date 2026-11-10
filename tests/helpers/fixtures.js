@@ -17,12 +17,12 @@ export function seedFixtures(db) {
   ids.genderMale = insert('INSERT INTO gender (name, created_at) VALUES (?, ?)', 'Male', at);
 
   ids.designer = insert(
-    'INSERT INTO designer (name, website_url, created_at, updated_at) VALUES (?, ?, ?, ?)',
+    'INSERT INTO artist (name, website_url, created_at, updated_at) VALUES (?, ?, ?, ?)',
     'Dara Designs', 'https://dara.example/', at, at,
   );
   // No website: the detail page must render the name as plain text (FR-005).
   ids.designerNoSite = insert(
-    'INSERT INTO designer (name, website_url, created_at, updated_at) VALUES (?, NULL, ?, ?)',
+    'INSERT INTO artist (name, website_url, created_at, updated_at) VALUES (?, NULL, ?, ?)',
     'Anon Designer', at, at,
   );
 
@@ -38,12 +38,10 @@ export function seedFixtures(db) {
   ids.tagCute = insert('INSERT INTO tag (name, created_at) VALUES (?, ?)', 'cute', at);
   ids.tagFeral = insert('INSERT INTO tag (name, created_at) VALUES (?, ?)', 'feral', at);
 
-  ids.traitGreed = insert(
-    'INSERT INTO trait (name, kind, created_at, updated_at) VALUES (?, ?, ?, ?)', 'Greed', 'sin', at, at,
-  );
-  ids.traitPatience = insert(
-    'INSERT INTO trait (name, kind, created_at, updated_at) VALUES (?, ?, ?, ?)', 'Patience', 'virtue', at, at,
-  );
+  ids.tagGreed = insert('INSERT INTO tag (name, created_at) VALUES (?, ?)', 'Greed', at);
+  ids.tagPatience = insert('INSERT INTO tag (name, created_at) VALUES (?, ?)', 'Patience', at);
+  ids.traitGreed = ids.tagGreed;
+  ids.traitPatience = ids.tagPatience;
 
   const addImage = (key, { artistId, nsfw, alt }) => {
     ids[key] = insert(
@@ -69,20 +67,20 @@ export function seedFixtures(db) {
     'After Hours', 'after-hours', 'Explicit story body for gating tests.', at, at,
   );
 
-  const addCharacter = (key, { name, slug, genderId, designerId }) => {
+  const addCharacter = (key, { name, slug, genderId, artistId }) => {
     ids[key] = insert(
       `INSERT INTO character
          (name, slug, gender_id, short_description, terms_of_use,
-          can_regift, can_retrade, can_resell, designer_id, created_at, updated_at)
+          can_regift, can_retrade, can_resell, artist_id, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, 1, 0, 0, ?, ?, ?)`,
       name, slug, genderId, `${name} short description`, 'Do not resell without permission.',
-      designerId, at, at,
+      artistId, at, at,
     );
   };
 
-  addCharacter('aria', { name: 'Aria', slug: 'aria', genderId: ids.genderFemale, designerId: ids.designer });
-  addCharacter('brann', { name: 'Brann', slug: 'brann', genderId: ids.genderMale, designerId: ids.designerNoSite });
-  addCharacter('shadow', { name: 'Shadow', slug: 'shadow', genderId: ids.genderFemale, designerId: ids.designer });
+  addCharacter('aria', { name: 'Aria', slug: 'aria', genderId: ids.genderFemale, artistId: ids.designer });
+  addCharacter('brann', { name: 'Brann', slug: 'brann', genderId: ids.genderMale, artistId: ids.designerNoSite });
+  addCharacter('shadow', { name: 'Shadow', slug: 'shadow', genderId: ids.genderFemale, artistId: ids.designer });
 
   const link = (sql, ...params) => db.prepare(sql).run(...params);
 
@@ -96,8 +94,8 @@ export function seedFixtures(db) {
   link('INSERT INTO character_tag VALUES (?, ?)', ids.shadow, ids.tagCute);
   link('INSERT INTO character_tag VALUES (?, ?)', ids.shadow, ids.tagFeral);
 
-  link('INSERT INTO character_trait VALUES (?, ?)', ids.aria, ids.traitPatience);
-  link('INSERT INTO character_trait VALUES (?, ?)', ids.shadow, ids.traitGreed);
+  link('INSERT INTO character_tag VALUES (?, ?)', ids.aria, ids.tagPatience);
+  link('INSERT INTO character_tag VALUES (?, ?)', ids.shadow, ids.tagGreed);
 
   link('INSERT INTO character_image (character_id, image_id, position) VALUES (?, ?, 0)', ids.aria, ids.imageSfwA);
   link('INSERT INTO character_image (character_id, image_id, position) VALUES (?, ?, 1)', ids.aria, ids.imageNsfwA);

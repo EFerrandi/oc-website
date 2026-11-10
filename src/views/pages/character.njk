@@ -1,7 +1,6 @@
 {% extends "layout.njk" %}
 {% from "partials/credit.njk" import credit %}
 {% from "partials/image-preview.njk" import imagePreview %}
-{% from "partials/trait-list.njk" import traitList %}
 
 {% block title %}{{ character.name }} — OC Gallery{% endblock %}
 
@@ -17,10 +16,18 @@
         <img class="profile-avatar-image"
              src="{{ ('/media/' + character.avatar.id) if character.avatar else '/img/placeholder-avatar.svg' }}"
              alt="{{ character.avatar.altText if character.avatar and character.avatar.altText else character.name }}"
-             width="220" height="220">
+             width="220" height="220"
+             {% if character.avatar %}style="object-position: {{ character.avatar.cropX or 50 }}% {{ character.avatar.cropY or 50 }}%; transform: scale({{ character.avatar.cropZoom or 1 }}); transform-origin: {{ character.avatar.cropX or 50 }}% {{ character.avatar.cropY or 50 }}%;"{% endif %}>
       </div>
 
       <div class="profile-summary">
+        {% if character.tags.length %}
+          <ul class="chips profile-tags" aria-label="Tags">
+            {% for t in character.tags %}
+              <li><a class="chip" href="/?tag={{ t.name | urlencode }}">{{ t.name }}</a></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
         <h1>{{ character.name }}</h1>
 
         {% if character.jobTitles.length %}
@@ -30,35 +37,6 @@
         <p class="character-gender">{{ character.genderName }}</p>
         <p class="character-description">{{ character.shortDescription }}</p>
 
-        <section class="summary-block">
-          <h2>Tags</h2>
-          {% if character.tags.length %}
-            <ul class="chips">
-              {% for t in character.tags %}
-                <li><a class="chip" href="/?tag={{ t.name | urlencode }}">{{ t.name }}</a></li>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <p class="empty-state">No tags recorded.</p>
-          {% endif %}
-        </section>
-
-        <section class="summary-block">
-          <h2>Sins &amp; Virtues</h2>
-          {{ traitList(character.traits) }}
-        </section>
-
-        <section class="summary-block">
-          <h2>Ownership</h2>
-          <p>Designed by {{ credit(character.designerName, character.designerUrl) }}</p>
-          <h3>Terms of use</h3>
-          <p class="terms">{{ character.termsOfUse }}</p>
-          <ul class="permissions">
-            <li>Can be regifted: <strong>{{ "Allowed" if character.canRegift else "Not allowed" }}</strong></li>
-            <li>Can be retraded: <strong>{{ "Allowed" if character.canRetrade else "Not allowed" }}</strong></li>
-            <li>Can be resold: <strong>{{ "Allowed" if character.canResell else "Not allowed" }}</strong></li>
-          </ul>
-        </section>
       </div>
     </header>
 
@@ -82,16 +60,32 @@
       {% endif %}
     </section>
 
+    <section class="profile-relationships">
+      <h2>Relationships</h2>
+      {% if character.relationships.length %}
+        <ul>
+          {% for r in character.relationships %}
+            <li>
+              {% if r.from.id == character.id %}
+                {{ r.label }} → <a href="/characters/{{ r.to.slug }}">{{ r.to.name }}</a>
+              {% else %}
+                <a href="/characters/{{ r.from.slug }}">{{ r.from.name }}</a> → {{ r.label }}
+              {% endif %}
+              {% if r.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-state">No relationships to show at the current content setting.</p>
+      {% endif %}
+    </section>
+
     <section class="profile-stories">
       <h2>Stories</h2>
       {% if character.stories.length %}
         <ul class="story-list">
           {% for s in character.stories %}
             <li>
-              {# Native <details>: collapsed to the title plus an opening
-                 extract, expanding in place, with no JavaScript involved. The
-                 body is already in the page, so the story is readable whether
-                 or not the disclosure widget works. #}
               <details class="story">
                 <summary>
                   <span class="story-title">{{ s.title }}</span>
@@ -113,24 +107,18 @@
       {% endif %}
     </section>
 
-    <section class="profile-relationships">
-      <h2>Relationships</h2>
-      {% if character.relationships.length %}
-        <ul>
-          {% for r in character.relationships %}
-            <li>
-              {% if r.from.id == character.id %}
-                {{ r.label }} → <a href="/characters/{{ r.to.slug }}">{{ r.to.name }}</a>
-              {% else %}
-                <a href="/characters/{{ r.from.slug }}">{{ r.from.name }}</a> → {{ r.label }}
-              {% endif %}
-              {% if r.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
-            </li>
-          {% endfor %}
+    {% if character.termsOfUse %}
+      <section class="summary-block ownership-block">
+        <h2>Ownership</h2>
+        <p>Designed by {{ credit(character.artistName, character.artistUrl) }}</p>
+        <h3>Terms of use</h3>
+        <p class="terms">{{ character.termsOfUse }}</p>
+        <ul class="permissions">
+          <li>Can be regifted: <strong>{{ "Allowed" if character.canRegift else "Not allowed" }}</strong></li>
+          <li>Can be retraded: <strong>{{ "Allowed" if character.canRetrade else "Not allowed" }}</strong></li>
+          <li>Can be resold: <strong>{{ "Allowed" if character.canResell else "Not allowed" }}</strong></li>
         </ul>
-      {% else %}
-        <p class="empty-state">No relationships to show at the current content setting.</p>
-      {% endif %}
-    </section>
+      </section>
+    {% endif %}
   </article>
 {% endblock %}

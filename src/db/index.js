@@ -6,8 +6,8 @@ import { DatabaseSync } from 'node:sqlite';
  * Open a connection.
  *
  * `PRAGMA foreign_keys = ON` is applied to EVERY connection because SQLite
- * defaults it OFF. Without it the tag/trait delete asymmetry silently stops
- * working: deleting an in-use tag would succeed and leave characters invalid.
+ * defaults it OFF. Without it deleting an in-use tag would succeed and leave
+ * characters without a required tag.
  * This is the single most important line in the data layer.
  */
 export function openDatabase(databasePath) {

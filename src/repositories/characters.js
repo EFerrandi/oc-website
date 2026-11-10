@@ -3,7 +3,6 @@ import { listImagesForCharacter } from './images.js';
 import { listRelationshipsForCharacter } from './relationships.js';
 import { listStoriesForCharacter } from './stories.js';
 import { listTagsForCharacter } from './tags.js';
-import { groupTraits, listTraitsForCharacter } from './traits.js';
 
 // Re-exported so existing callers and tests keep their import path. The
 // implementation moved to avatars.js to break a circular import — see the
@@ -20,25 +19,22 @@ function listJobTitles(db, characterId) {
 
 const CHARACTER_COLUMNS = `
   c.id, c.name, c.slug, c.gender_id AS genderId,
-  c.short_description AS shortDescription, c.terms_of_use AS termsOfUse,
-  c.can_regift AS canRegift, c.can_retrade AS canRetrade, c.can_resell AS canResell,
-  c.designer_id AS designerId, c.avatar_image_id AS avatarImageId,
+  c.short_description AS shortDescription,
+  c.artist_id AS artistId, c.avatar_image_id AS avatarImageId,
+  c.avatar_crop_x AS avatarCropX, c.avatar_crop_y AS avatarCropY,
+  c.avatar_crop_zoom AS avatarCropZoom,
   c.created_at AS createdAt, c.updated_at AS updatedAt
 `;
 
 /**
- * Gallery listing with AND filter semantics.
- *
- * A character matches only if it carries EVERY requested tag and EVERY
- * requested trait, which is why each taxonomy filter is its own
- * `GROUP BY … HAVING COUNT(DISTINCT …) = n` subquery rather than an `IN` list
- * (an `IN` list would give OR semantics).
+ * A character matches only if it carries EVERY requested tag. A grouped
+ * subquery preserves AND semantics for repeatable tag filters.
  */
-export function listCharacters(db, { showNsfw, tags = [], traits = [], gender = null } = {}) {
+export function listCharacters(db, { showNsfw, tags = [], gender = null } = {}) {
   const where = [];
   const params = [];
 
-  // tag.name, trait.name and gender.name are declared COLLATE NOCASE, so
+  // tag.name and gender.name are declared COLLATE NOCASE, so
   // these comparisons are already case-insensitive without an explicit clause.
   if (tags.length > 0) {
     where.push(`c.id IN (
@@ -49,17 +45,6 @@ export function listCharacters(db, { showNsfw, tags = [], traits = [], gender = 
       HAVING COUNT(DISTINCT t.id) = ?
     )`);
     params.push(...tags, tags.length);
-  }
-
-  if (traits.length > 0) {
-    where.push(`c.id IN (
-      SELECT ctr.character_id FROM character_trait ctr
-      JOIN trait tr ON tr.id = ctr.trait_id
-      WHERE tr.name IN (${traits.map(() => '?').join(',')})
-      GROUP BY ctr.character_id
-      HAVING COUNT(DISTINCT tr.id) = ?
-    )`);
-    params.push(...traits, traits.length);
   }
 
   if (gender) {
@@ -78,34 +63,47 @@ export function listCharacters(db, { showNsfw, tags = [], traits = [], gender = 
   return rows.map((row) => ({
     ...row,
     jobTitles: listJobTitles(db, row.id),
-    avatar: resolveEffectiveAvatar(db, row, { showNsfw }),
+    avatar: resolveAvatarWithCrop(db, row, { showNsfw }),
   }));
 }
 
-export function findCharacterBySlug(db, slug, { showNsfw }) {
+function resolveAvatarWithCrop(db, row, { showNsfw }) {
+  const avatar = resolveEffectiveAvatar(db, row, { showNsfw });
+  if (!avatar || avatar.id !== row.avatarImageId) return avatar;
+  return {
+    ...avatar,
+    cropX: row.avatarCropX ?? 50,
+    cropY: row.avatarCropY ?? 50,
+    cropZoom: row.avatarCropZoom ?? 1,
+  };
+}
+
+export function findCharacterBySlug(db, slug, { showNsfw, includeOwnership = false }) {
   const row = db.prepare(`
     SELECT ${CHARACTER_COLUMNS},
            g.name AS genderName,
-           d.name AS designerName, d.website_url AS designerUrl
+           a.name AS artistName, a.website_url AS artistUrl
+           ${includeOwnership ? `,
+           c.terms_of_use AS termsOfUse, c.can_regift AS canRegift,
+           c.can_retrade AS canRetrade, c.can_resell AS canResell` : ''}
     FROM character c
     JOIN gender g ON g.id = c.gender_id
-    JOIN designer d ON d.id = c.designer_id
+    JOIN artist a ON a.id = c.artist_id
     WHERE c.slug = ?
   `).get(slug);
 
   if (!row) return null;
 
-  const traits = listTraitsForCharacter(db, row.id);
-
   return {
     ...row,
-    canRegift: row.canRegift === 1,
-    canRetrade: row.canRetrade === 1,
-    canResell: row.canResell === 1,
+    ...(includeOwnership ? {
+      canRegift: row.canRegift === 1,
+      canRetrade: row.canRetrade === 1,
+      canResell: row.canResell === 1,
+    } : {}),
     jobTitles: listJobTitles(db, row.id),
     tags: listTagsForCharacter(db, row.id),
-    traits: groupTraits(traits),
-    avatar: resolveEffectiveAvatar(db, row, { showNsfw }),
+    avatar: resolveAvatarWithCrop(db, row, { showNsfw }),
     images: listImagesForCharacter(db, row.id, { showNsfw }),
     stories: listStoriesForCharacter(db, row.id, { showNsfw }),
     relationships: listRelationshipsForCharacter(db, row.id, { showNsfw }),

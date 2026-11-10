@@ -32,10 +32,8 @@ function adminActions(ids) {
     ['post', '/admin/relationships'],
     ['post', '/admin/tags'],
     ['post', `/admin/tags/${ids.tagCute}/delete`],
-    ['post', '/admin/traits'],
     ['post', '/admin/genders'],
     ['post', '/admin/artists'],
-    ['post', '/admin/designers'],
   ];
 }
 

@@ -10,42 +10,28 @@ export class ConflictError extends Error {
 }
 
 /**
- * Configuration for the five taxonomies that share one CRUD shape.
+ * Configuration for the three taxonomies that share one CRUD shape.
  *
  * `inUseBlocksDelete` carries the single most important rule in this file:
  *
  *   - TAGS are mandatory on characters (FR-041), so deleting a tag that is
  *     still in use is REFUSED — otherwise a character could end up with none.
- *   - TRAITS are optional (FR-060), so deleting a trait that is in use
- *     SUCCEEDS and simply detaches it from its characters (FR-062).
- *
- * These two look inconsistent side by side. They are not. Making them match
- * would be a bug, and the database enforces the same split via RESTRICT on
- * character_tag.tag_id and CASCADE on character_trait.trait_id.
+ * Tags and genders cannot be deleted while referenced; artists cannot be
+ * deleted while a character or image credits them.
  */
 const KINDS = {
   tags: {
     table: 'tag',
     label: 'Tag',
     hasUrl: false,
-    hasTraitKind: false,
     inUseBlocksDelete: true,
     usageSql: 'SELECT COUNT(*) AS n FROM character_tag WHERE tag_id = ?',
     usageMessage: 'characters still carry this tag, and every character must keep at least one',
-  },
-  traits: {
-    table: 'trait',
-    label: 'Sin or virtue',
-    hasUrl: false,
-    hasTraitKind: true,
-    inUseBlocksDelete: false,
-    usageSql: 'SELECT COUNT(*) AS n FROM character_trait WHERE trait_id = ?',
   },
   genders: {
     table: 'gender',
     label: 'Gender',
     hasUrl: false,
-    hasTraitKind: false,
     inUseBlocksDelete: true,
     usageSql: 'SELECT COUNT(*) AS n FROM character WHERE gender_id = ?',
     usageMessage: 'characters are still assigned this gender',
@@ -54,19 +40,11 @@ const KINDS = {
     table: 'artist',
     label: 'Artist',
     hasUrl: true,
-    hasTraitKind: false,
     inUseBlocksDelete: true,
-    usageSql: 'SELECT COUNT(*) AS n FROM image WHERE artist_id = ?',
-    usageMessage: 'images still credit this artist',
-  },
-  designers: {
-    table: 'designer',
-    label: 'Designer',
-    hasUrl: true,
-    hasTraitKind: false,
-    inUseBlocksDelete: true,
-    usageSql: 'SELECT COUNT(*) AS n FROM character WHERE designer_id = ?',
-    usageMessage: 'characters still credit this designer',
+    usageSql: `SELECT
+      (SELECT COUNT(*) FROM image WHERE artist_id = ?) +
+      (SELECT COUNT(*) FROM character WHERE artist_id = ?) AS n`,
+    usageMessage: 'images or characters still credit this artist',
   },
 };
 
@@ -80,14 +58,13 @@ export const TAXONOMY_KINDS = Object.keys(KINDS);
 
 function hasTimestamps(spec) {
   // gender and tag carry only created_at.
-  return spec.table !== 'gender' && spec.table !== 'tag';
+  return spec.table === 'artist';
 }
 
 export function listItems(db, kind) {
   const spec = getKind(kind);
   const columns = ['id', 'name'];
   if (spec.hasUrl) columns.push('website_url AS websiteUrl');
-  if (spec.hasTraitKind) columns.push('kind');
 
   return db.prepare(`
     SELECT ${columns.join(', ')} FROM ${spec.table} ORDER BY name COLLATE NOCASE
@@ -98,14 +75,15 @@ export function findItem(db, kind, id) {
   const spec = getKind(kind);
   const columns = ['id', 'name'];
   if (spec.hasUrl) columns.push('website_url AS websiteUrl');
-  if (spec.hasTraitKind) columns.push('kind');
 
   return db.prepare(`SELECT ${columns.join(', ')} FROM ${spec.table} WHERE id = ?`).get(id) ?? null;
 }
 
 export function countUsage(db, kind, id) {
   const spec = getKind(kind);
-  return db.prepare(spec.usageSql).get(id).n;
+  return spec.table === 'artist'
+    ? db.prepare(spec.usageSql).get(id, id).n
+    : db.prepare(spec.usageSql).get(id).n;
 }
 
 /**
@@ -126,15 +104,11 @@ function assertUniqueName(db, spec, name, excludeId) {
   }
 }
 
-function validate(spec, { name, websiteUrl, traitKind }) {
+function validate(spec, { name, websiteUrl }) {
   const cleanName = normaliseName(name);
   const fieldErrors = {};
 
   if (!cleanName) fieldErrors.name = 'Enter a name.';
-
-  if (spec.hasTraitKind && traitKind !== 'sin' && traitKind !== 'virtue') {
-    fieldErrors.kind = 'Choose either Sin or Virtue.';
-  }
 
   let cleanUrl = null;
   if (spec.hasUrl && websiteUrl) {
@@ -166,7 +140,6 @@ export function createItem(db, kind, input) {
   const columns = ['name', 'created_at'];
   const values = [cleanName, at];
 
-  if (spec.hasTraitKind) { columns.splice(1, 0, 'kind'); values.splice(1, 0, input.traitKind); }
   if (spec.hasUrl) { columns.splice(1, 0, 'website_url'); values.splice(1, 0, cleanUrl); }
   if (hasTimestamps(spec)) { columns.push('updated_at'); values.push(at); }
 
@@ -189,10 +162,6 @@ export function updateItem(db, kind, id, input) {
   const sets = ['name = ?'];
   const values = [cleanName];
 
-  // Re-classifying a trait moves it between the Sins and Virtues headings
-  // everywhere it appears — automatically, because characters reference the
-  // row rather than copying its name (FR-058, FR-061).
-  if (spec.hasTraitKind) { sets.push('kind = ?'); values.push(input.traitKind); }
   if (spec.hasUrl) { sets.push('website_url = ?'); values.push(cleanUrl); }
   if (hasTimestamps(spec)) { sets.push('updated_at = ?'); values.push(new Date().toISOString()); }
 
@@ -213,8 +182,6 @@ export function deleteItem(db, kind, id) {
     );
   }
 
-  // For traits, usage > 0 is fine: the ON DELETE CASCADE on
-  // character_trait.trait_id detaches it from every character (FR-062).
   db.prepare(`DELETE FROM ${spec.table} WHERE id = ?`).run(id);
 }
 

@@ -31,14 +31,27 @@ export function migrate(db, { log = () => {} } = {}) {
   for (const file of files) {
     if (applied.has(file)) continue;
 
-    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-    transaction(db, () => {
-      db.exec(sql);
-      db.prepare('INSERT INTO schema_migration (name, applied_at) VALUES (?, ?)').run(
-        file,
-        new Date().toISOString()
-      );
-    });
+    const migrationPath = path.join(migrationsDir, file);
+    const sql = fs.readFileSync(migrationPath, 'utf8');
+    const requiresForeignKeysOff = sql.startsWith('-- @requires-foreign-keys-off');
+    if (requiresForeignKeysOff) db.exec('PRAGMA foreign_keys = OFF');
+    try {
+      transaction(db, () => {
+        db.exec(requiresForeignKeysOff
+          ? sql.replace(/^-- @requires-foreign-keys-off\s*/, '')
+          : sql);
+        db.prepare('INSERT INTO schema_migration (name, applied_at) VALUES (?, ?)').run(
+          file,
+          new Date().toISOString()
+        );
+      });
+    } finally {
+      if (requiresForeignKeysOff) db.exec('PRAGMA foreign_keys = ON');
+    }
+
+    if (db.prepare('PRAGMA foreign_key_check').all().length > 0) {
+      throw new Error(`Foreign-key check failed after migration ${file}`);
+    }
     log(`applied ${file}`);
     count += 1;
   }

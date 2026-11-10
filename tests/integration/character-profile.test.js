@@ -132,7 +132,7 @@ test('each story is readable in place, collapsed, without following a link', asy
 });
 
 // T061 — FR-038: nothing that used to be on the page was lost.
-test('the summary still carries every piece of basic information', async (t) => {
+test('the public summary carries tags but never exposes ownership details', async (t) => {
   const { app } = withApp(t);
 
   const html = (await profile(app)).text;
@@ -147,17 +147,15 @@ test('the summary still carries every piece of basic information', async (t) => 
     'first job title': 'Cartographer',
     'second job title': 'Archivist',
     tag: 'cute',
-    trait: 'Patience',
-    designer: 'Dara Designs',
+    reusedTag: 'Patience',
   };
 
   for (const [what, value] of Object.entries(expected)) {
     assert.ok(summary.includes(value), `the summary lost the ${what} (${value})`);
   }
 
-  assert.match(summary, /Terms of use/i, 'the summary lost the terms of use');
-
-  for (const permission of ['regift', 'retrade', 'resell']) {
-    assert.match(summary, new RegExp(permission, 'i'), `the summary lost the ${permission} permission`);
-  }
+  assert.ok(!html.includes('Do not resell without permission.'));
+  assert.ok(!html.includes('Can be regifted'));
+  assert.ok(!html.includes('Ownership'));
+  assert.ok(html.indexOf('profile-relationships') < html.indexOf('profile-stories'));
 });

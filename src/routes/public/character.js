@@ -10,7 +10,7 @@ export function characterRouter() {
     const character = findCharacterBySlug(
       req.app.locals.db,
       req.params.slug,
-      { showNsfw: res.locals.showNsfw },
+      { showNsfw: res.locals.showNsfw, includeOwnership: res.locals.isAdmin },
     );
 
     if (!character) return next(new NotFoundError());

@@ -3,9 +3,8 @@
 import { verifyCsrf } from '../../middleware/csrf.js';
 
 import { listGenders } from '../../repositories/genders.js';
-import { listDesigners, listArtists } from '../../repositories/credits.js';
+import { listArtists } from '../../repositories/credits.js';
 import { listTags } from '../../repositories/tags.js';
-import { listTraits } from '../../repositories/traits.js';
 import {
   createCharacterWithImage,
   deleteCharacter,
@@ -17,10 +16,8 @@ import { findOrCreateByName } from '../../services/taxonomy.js';
 function formOptions(db) {
   return {
     genders: listGenders(db),
-    designers: listDesigners(db),
     artists: listArtists(db),
     tags: listTags(db),
-    traits: listTraits(db),
   };
 }
 
@@ -35,28 +32,18 @@ function toArray(value) {
 }
 
 /**
- * Let the admin type a brand-new tag or sin/virtue directly in the character
+ * Let the admin type a brand-new tag directly in the character
  * form instead of breaking off to the taxonomy screens first. Newly created
  * ids are merged into the submitted id lists.
  */
 function resolveInlineTaxonomy(db, body) {
   const newTags = String(body.new_tags ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  const newSins = String(body.new_sins ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  const newVirtues = String(body.new_virtues ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-
   const tagIds = newTags.map((name) => findOrCreateByName(db, 'tags', name)).filter(Boolean);
-  const traitIds = [
-    ...newSins.map((name) => findOrCreateByName(db, 'traits', name, { traitKind: 'sin' })),
-    ...newVirtues.map((name) => findOrCreateByName(db, 'traits', name, { traitKind: 'virtue' })),
-  ].filter(Boolean);
-
   const existingTags = [].concat(body['tag_id[]'] ?? body.tag_id ?? []);
-  const existingTraits = [].concat(body['trait_id[]'] ?? body.trait_id ?? []);
 
   return {
     ...body,
     tag_id: [...existingTags, ...tagIds.map(String)],
-    trait_id: [...existingTraits, ...traitIds.map(String)],
   };
 }
 
@@ -64,7 +51,9 @@ function characterDetail(db, id) {
   const character = db.prepare(`
     SELECT id, name, slug, gender_id AS genderId, short_description AS shortDescription,
            terms_of_use AS termsOfUse, can_regift AS canRegift, can_retrade AS canRetrade,
-           can_resell AS canResell, designer_id AS designerId, avatar_image_id AS avatarImageId
+           can_resell AS canResell, artist_id AS artistId, avatar_image_id AS avatarImageId,
+           avatar_crop_x AS avatarCropX, avatar_crop_y AS avatarCropY,
+           avatar_crop_zoom AS avatarCropZoom
     FROM character WHERE id = ?
   `).get(id);
 
@@ -76,7 +65,6 @@ function characterDetail(db, id) {
       'SELECT title FROM character_job_title WHERE character_id = ? ORDER BY position, rowid',
     ).all(id).map((r) => r.title),
     tagIds: db.prepare('SELECT tag_id AS id FROM character_tag WHERE character_id = ?').all(id).map((r) => r.id),
-    traitIds: db.prepare('SELECT trait_id AS id FROM character_trait WHERE character_id = ?').all(id).map((r) => r.id),
     images: db.prepare(`
       SELECT i.id, i.alt_text AS altText, i.is_nsfw AS isNsfw
       FROM image i JOIN character_image ci ON ci.image_id = i.id
@@ -155,10 +143,14 @@ export function adminCharactersRouter(upload) {
 
       const character = characterDetail(db, id);
       if (!character) return next();
+      character.avatarImageId = Number(req.body.avatar_image_id) || character.avatarImageId;
+      character.avatarCropX = req.body.avatar_crop_x;
+      character.avatarCropY = req.body.avatar_crop_y;
+      character.avatarCropZoom = req.body.avatar_crop_zoom;
 
       res.status(422);
       return res.render('admin/character-edit.njk', {
-        character,
+        character, values: req.body,
         options: formOptions(db),
         fieldErrors: err.fieldErrors,
       });

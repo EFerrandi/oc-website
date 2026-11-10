@@ -1,5 +1,6 @@
 import { ValidationError } from '../middleware/errors.js';
 import { transaction } from '../db/index.js';
+import { nameKey, normaliseName } from '../lib/names.js';
 import { deleteImageFiles, storeImage } from './images.js';
 
 function asIdList(value) {
@@ -22,9 +23,32 @@ function validate(db, body, { requireFile, file }) {
   const altText = String(body.alt_text ?? '').trim();
   if (!altText) fieldErrors.alt_text = 'Enter alt text describing the image.';
 
-  // An image cannot exist without an artist credit (FR-042).
-  const artistId = Number(body.artist_id);
-  if (!db.prepare('SELECT 1 FROM artist WHERE id = ?').get(artistId)) {
+  let artistId = Number(body.artist_id);
+  let newArtist = null;
+  if (body.artist_id === 'new') {
+    const name = normaliseName(body.new_artist_name);
+    if (!name) fieldErrors.new_artist_name = 'Enter the artist name.';
+
+    let websiteUrl = null;
+    const rawUrl = String(body.new_artist_website_url ?? '').trim();
+    if (rawUrl) {
+      try {
+        const parsed = new URL(rawUrl);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('bad protocol');
+        websiteUrl = parsed.href;
+      } catch {
+        fieldErrors.new_artist_website_url = 'Enter a full web address starting with http:// or https://, or leave it blank.';
+      }
+    }
+
+    if (name) {
+      const duplicate = db.prepare('SELECT name FROM artist').all()
+        .find((artist) => nameKey(artist.name) === nameKey(name));
+      if (duplicate) fieldErrors.new_artist_name = `"${duplicate.name}" already exists. Choose the existing artist instead.`;
+    }
+    newArtist = { name, websiteUrl };
+    artistId = null;
+  } else if (!db.prepare('SELECT 1 FROM artist WHERE id = ?').get(artistId)) {
     fieldErrors.artist_id = 'Choose the artist who made this image.';
   }
 
@@ -43,6 +67,7 @@ function validate(db, body, { requireFile, file }) {
   return {
     altText,
     artistId,
+    newArtist,
     characterIds,
     shortDescription: String(body.short_description ?? '').trim() || null,
     isNsfw: asBool(body.is_nsfw),
@@ -59,6 +84,11 @@ export async function createImage(db, { body, file, config }) {
   try {
     return transaction(db, () => {
       const at = new Date().toISOString();
+      const artistId = input.newArtist
+        ? Number(db.prepare(`
+          INSERT INTO artist (name, website_url, created_at, updated_at) VALUES (?, ?, ?, ?)
+        `).run(input.newArtist.name, input.newArtist.websiteUrl, at, at).lastInsertRowid)
+        : input.artistId;
 
       const imageId = Number(db.prepare(`
         INSERT INTO image
@@ -68,7 +98,7 @@ export async function createImage(db, { body, file, config }) {
       `).run(
         stored.fileName, stored.previewFileName, stored.mimeType, stored.byteSize,
         stored.width, stored.height, input.altText, input.shortDescription,
-        input.artistId, input.isNsfw ? 1 : 0, at, at,
+        artistId, input.isNsfw ? 1 : 0, at, at,
       ).lastInsertRowid);
 
       for (const characterId of input.characterIds) {

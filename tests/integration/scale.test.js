@@ -32,7 +32,7 @@ function seedRows(db) {
   );
 
   const designer = insert(
-    'INSERT INTO designer (name, website_url, created_at, updated_at) VALUES (?, ?, ?, ?)',
+    'INSERT INTO artist (name, website_url, created_at, updated_at) VALUES (?, ?, ?, ?)',
     'Bulk Designer', 'https://example.com/d', at, at,
   );
 
@@ -60,7 +60,7 @@ function seedRows(db) {
     const id = insert(`
       INSERT INTO character
         (name, slug, gender_id, short_description, terms_of_use,
-         can_regift, can_retrade, can_resell, designer_id, avatar_image_id, created_at, updated_at)
+         can_regift, can_retrade, can_resell, artist_id, avatar_image_id, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, 1, 0, 0, ?, ?, ?, ?)
     `, `Character ${i}`, `character-${i}`, genders[i % genders.length],
     `Description ${i}`, 'Ask first.', designer, sfwOwn, at, at);

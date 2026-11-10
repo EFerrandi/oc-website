@@ -102,7 +102,7 @@ test('each character tile is one link holding only avatar, name and job titles',
   assert.match(aria, /Cartographer · Archivist/, 'all job titles are shown in order');
 });
 
-test('the filter bar is a GET form with gender up front and collapsible sections', async (t) => {
+test('the filter bar uses accessible gender and tag bubbles', async (t) => {
   const { app } = withApp(t);
 
   const plain = await request(app).get('/');
@@ -110,11 +110,11 @@ test('the filter bar is a GET form with gender up front and collapsible sections
   assert.ok(form, 'the filter bar form exists');
   assert.match(form, /method="get"/);
   assert.match(form, /action="\/"/);
-  assert.match(form, /<select id="gender" name="gender"/, 'gender is shown directly');
+  assert.match(form, /<input type="radio" name="gender" value="Female"/, 'gender is a single-select bubble');
   assert.match(form, /Apply filters/);
 
   const sections = form.match(/<details\b[^>]*>/g) ?? [];
-  assert.equal(sections.length, 2, 'tags and sins/virtues each have a disclosure section');
+  assert.equal(sections.length, 1, 'only tags have a disclosure section');
   for (const section of sections) {
     assert.doesNotMatch(section, /\sopen\b/, 'sections start collapsed without active filters');
   }
@@ -122,8 +122,8 @@ test('the filter bar is a GET form with gender up front and collapsible sections
   const filtered = await request(app).get('/?tag=cute');
   const tagSection = filtered.text.match(/<details[^>]*data-filter-section="tags"[^>]*>/)?.[0];
   assert.match(tagSection, /\sopen\b/, 'a section containing an active filter starts open');
-  const traitSection = filtered.text.match(/<details[^>]*data-filter-section="traits"[^>]*>/)?.[0];
-  if (traitSection) assert.doesNotMatch(traitSection, /\sopen\b/);
+  assert.match(form, /<input type="checkbox" name="tag" value="cute"/, 'tags are multi-select bubbles');
+  assert.doesNotMatch(filtered.text, /name="trait"/, 'former sins/virtues are not a separate filter');
 });
 
 test('active filters render as removable chips that keep the other filters', async (t) => {

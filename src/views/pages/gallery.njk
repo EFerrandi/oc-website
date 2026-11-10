@@ -2,7 +2,7 @@
 
 {% block title %}Characters — OC Gallery{% endblock %}
 
-{% set kindLabels = {"gender": "gender", "tag": "tag", "trait": "sin or virtue"} %}
+{% set kindLabels = {"gender": "gender", "tag": "tag"} %}
 
 {% block content %}
   <div class="home-gallery">
@@ -38,7 +38,8 @@
           <li class="card character-tile">
             <a href="/characters/{{ c.slug }}">
               {% if c.avatar %}
-                <img class="card-thumb" src="/media/{{ c.avatar.id }}" alt="{{ c.avatar.altText }}" loading="lazy">
+                <img class="card-thumb" src="/media/{{ c.avatar.id }}" alt="{{ c.avatar.altText }}" loading="lazy"
+                     style="object-position: {{ c.avatar.cropX or 50 }}% {{ c.avatar.cropY or 50 }}%; transform: scale({{ c.avatar.cropZoom or 1 }}); transform-origin: {{ c.avatar.cropX or 50 }}% {{ c.avatar.cropY or 50 }}%;">
               {% else %}
                 {# No image visible at this rating level — the character is still
                    listed, with the neutral placeholder (FR-014). #}

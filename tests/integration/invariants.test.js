@@ -84,7 +84,7 @@ test('I-2: a character cannot be created without an image', async (t) => {
     .field('short_description', 'No image attached.')
     .field('job_title', 'Ghost')
     .field('terms_of_use', 'Ask first.')
-    .field('designer_id', String(ids.designer))
+    .field('artist_id', String(ids.designer))
     .field('tag_id', String(ids.tagCute));
 
   assert.equal(res.status, 422, 'a character with no image is refused');
@@ -104,7 +104,10 @@ test('I-3: a character can never end up with zero tags or zero job titles', asyn
     gender_id: ids.genderFemale,
     short_description: 'Still here.',
     terms_of_use: 'Ask first.',
-    designer_id: ids.designer,
+    artist_id: ids.designer,
+    can_regift: '1',
+    can_retrade: '0',
+    can_resell: '0',
     job_title: 'Cartographer',
   });
 
@@ -116,7 +119,10 @@ test('I-3: a character can never end up with zero tags or zero job titles', asyn
     gender_id: ids.genderFemale,
     short_description: 'Still here.',
     terms_of_use: 'Ask first.',
-    designer_id: ids.designer,
+    artist_id: ids.designer,
+    can_regift: '1',
+    can_retrade: '0',
+    can_resell: '0',
     tag_id: ids.tagCute,
   });
 
@@ -226,7 +232,10 @@ test('the avatar can only be an image actually linked to that character', async 
     gender_id: ids.genderFemale,
     short_description: 'Still here.',
     terms_of_use: 'Ask first.',
-    designer_id: ids.designer,
+    artist_id: ids.designer,
+    can_regift: '1',
+    can_retrade: '0',
+    can_resell: '0',
     job_title: 'Cartographer',
     tag_id: ids.tagCute,
     avatar_image_id: ids.imageSfwB,
