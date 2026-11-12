@@ -17,11 +17,13 @@
 
   document.querySelectorAll('.filter-bar').forEach(function (form) {
     var tags = form.querySelectorAll('input[type="checkbox"][name="tag"]');
+    var genders = form.querySelectorAll('input[type="radio"][name="gender"]');
     var apply = form.querySelector('.filter-apply');
-    if (!tags.length || !apply) return;
+    if ((!tags.length && !genders.length) || !apply) return;
 
-    tags.forEach(function (tag) {
-      tag.addEventListener('change', function () { form.submit(); });
+    var controls = Array.prototype.slice.call(tags).concat(Array.prototype.slice.call(genders));
+    controls.forEach(function (control) {
+      control.addEventListener('change', function () { form.submit(); });
     });
     apply.hidden = true;
   });

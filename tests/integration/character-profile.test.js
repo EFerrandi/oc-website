@@ -6,6 +6,7 @@ import request from 'supertest';
 
 import { createTestApp, NSFW_ON } from '../helpers/app.js';
 import { seedFixtures } from '../helpers/fixtures.js';
+import { hashPassword } from '../../src/services/auth.js';
 
 /**
  * User Story 8 — the character page as a profile: avatar top-left beside the
@@ -133,6 +134,53 @@ test('CRLF line endings in descriptions preserve paragraph breaks', async (t) =>
 
   const html = (await profile(app)).text;
   assert.match(html, /<p>First thought\.<\/p>\s*<p>Second thought\.<\/p>/);
+});
+
+test('profile text preserves mixed line endings in descriptions, stories, and terms of use', async (t) => {
+  const password = 'correct-horse-battery-staple';
+  const ctx = createTestApp({ adminPasswordHash: await hashPassword(password) });
+  const ids = seedFixtures(ctx.db);
+  t.after(() => ctx.cleanup());
+  const { app, db } = ctx;
+  db.prepare('UPDATE character SET personality = ?, physical_description = ?, terms_of_use = ? WHERE id = ?')
+    .run(
+      'First thought.\r\nSecond <script>alert(1)</script>.\n \t \nThird thought.\rFourth thought.',
+      'First detail.\r\nSecond detail.\n \t \nThird detail.\rFourth detail.',
+      'First term.\r\nSecond term.\rThird <script>alert(1)</script>.',
+      ids.aria,
+    );
+  db.prepare('UPDATE story SET body = ? WHERE id = ?')
+    .run('First story line.\r\nSecond <script>alert(1)</script>.\n \t \nThird line.\rFourth line.', ids.storySfw);
+
+  const agent = request.agent(app);
+  const login = await agent.get('/admin/login');
+  const token = login.text.match(/name="_csrf" value="([^"]+)"/)?.[1];
+  assert.ok(token, 'admin login form provides a CSRF token');
+  const authenticated = await agent.post('/admin/login').type('form').send({ _csrf: token, password });
+  assert.equal(authenticated.status, 303, 'admin login succeeds');
+
+  const html = (await agent.get('/characters/aria')).text;
+  assert.match(html, /First thought\.<br>Second &lt;script&gt;alert\(1\)&lt;\/script&gt;\.<\/p>\s*<p>Third thought\.<br>Fourth thought\.<\/p>/);
+  assert.match(html, /First detail\.<br>Second detail\.<\/p>\s*<p>Third detail\.<br>Fourth detail\.<\/p>/);
+  assert.match(html, /First story line\.<br>Second &lt;script&gt;alert\(1\)&lt;\/script&gt;\.<\/p>\s*<p>Third line\.<br>Fourth line\.<\/p>/);
+  assert.match(html, /<p class="terms">First term\.<br>Second term\.<br>Third &lt;script&gt;alert\(1\)&lt;\/script&gt;\.<\/p>/);
+
+  db.prepare('UPDATE character SET terms_of_use = ? WHERE id = ?').run(' \r\n\t ', ids.aria);
+  const whitespaceTerms = (await agent.get('/characters/aria')).text;
+  assert.doesNotMatch(whitespaceTerms, /class="ownership-block"/);
+});
+
+test('whitespace-only profile text does not produce empty content', async (t) => {
+  const { app, db, ids } = withApp(t);
+  db.prepare('UPDATE character SET personality = ?, physical_description = ? WHERE id = ?')
+    .run(' \r\n \t ', '\n \r ', ids.aria);
+  db.prepare('UPDATE story SET body = ? WHERE id = ?').run(' \r\n \t ', ids.storySfw);
+
+  const html = (await profile(app)).text;
+  assert.doesNotMatch(html, /class="profile-personality"/);
+  assert.doesNotMatch(html, /class="profile-physical-description"/);
+  assert.doesNotMatch(html, /class="ownership-block"/);
+  assert.doesNotMatch(html, /<div class="story-body">\s*<p>/);
 });
 
 test('empty character descriptions produce no public profile sections', async (t) => {

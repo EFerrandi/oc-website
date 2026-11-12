@@ -103,7 +103,7 @@ test('each character tile is one link holding only avatar, name and job titles',
   assert.match(aria, /Cartographer · Archivist/, 'all job titles are shown in order');
 });
 
-test('the filter bar uses accessible gender and tag bubbles', async (t) => {
+test('the filter bar shows all accessible gender and tag choices without collapsing them', async (t) => {
   const { app } = withApp(t);
 
   const plain = await request(app).get('/');
@@ -114,17 +114,23 @@ test('the filter bar uses accessible gender and tag bubbles', async (t) => {
   assert.match(form, /<input type="radio" name="gender" value="Female"/, 'gender is a single-select bubble');
   assert.match(form, /Apply filters/);
 
-  const sections = form.match(/<details\b[^>]*>/g) ?? [];
-  assert.equal(sections.length, 1, 'only tags have a disclosure section');
-  for (const section of sections) {
-    assert.doesNotMatch(section, /\sopen\b/, 'sections start collapsed without active filters');
-  }
+  assert.doesNotMatch(form, /<details\b/, 'filter choices are never hidden in a disclosure');
 
   const filtered = await request(app).get('/?tag=cute');
-  const tagSection = filtered.text.match(/<details[^>]*data-filter-section="tags"[^>]*>/)?.[0];
-  assert.match(tagSection, /\sopen\b/, 'a section containing an active filter starts open');
+  const filteredForm = filtered.text.match(/<form[^>]*class="[^"]*filter-bar[^"]*"[\s\S]*?<\/form>/)?.[0];
+  assert.match(filteredForm, /<input type="checkbox" name="tag" value="cute" checked/, 'selected tags remain visible and checked');
   assert.match(form, /<input type="checkbox" name="tag" value="cute"/, 'tags are multi-select bubbles');
   assert.doesNotMatch(filtered.text, /name="trait"/, 'former sins/virtues are not a separate filter');
+});
+
+test('gender and tag filter selections remain together in the GET-rendered state', async (t) => {
+  const { app } = withApp(t);
+  const res = await request(app).get('/?gender=Female&tag=cute&tag=Patience');
+  const form = res.text.match(/<form[^>]*class="[^"]*filter-bar[^"]*"[\s\S]*?<\/form>/)?.[0];
+  assert.ok(form, 'filter form exists');
+  assert.match(form, /name="gender" value="Female" checked/);
+  assert.match(form, /name="tag" value="cute" checked/);
+  assert.match(form, /name="tag" value="Patience" checked/);
 });
 
 test('active filters render as removable chips that keep the other filters', async (t) => {

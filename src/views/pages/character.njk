@@ -60,20 +60,24 @@
       {% endif %}
     </section>
 
-    {% if character.personality %}
+    {% if character.personality and character.personality.trim() %}
       <section class="profile-personality">
         <h2>Personality</h2>
-        {% for paragraph in character.personality.replace("\r\n", "\n").replace("\r", "\n").split("\n\n") %}
-          {% if paragraph | trim %}<p>{{ paragraph | trim }}</p>{% endif %}
+        {% for paragraph in character.personality | paragraphs %}
+          {% if paragraph | trim %}
+            <p>{% for line in paragraph.split("\n") %}{{ line | trim }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+          {% endif %}
         {% endfor %}
       </section>
     {% endif %}
 
-    {% if character.physicalDescription %}
+    {% if character.physicalDescription and character.physicalDescription.trim() %}
       <section class="profile-physical-description">
         <h2>Physical Description</h2>
-        {% for paragraph in character.physicalDescription.replace("\r\n", "\n").replace("\r", "\n").split("\n\n") %}
-          {% if paragraph | trim %}<p>{{ paragraph | trim }}</p>{% endif %}
+        {% for paragraph in character.physicalDescription | paragraphs %}
+          {% if paragraph | trim %}
+            <p>{% for line in paragraph.split("\n") %}{{ line | trim }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+          {% endif %}
         {% endfor %}
       </section>
     {% endif %}
@@ -105,14 +109,17 @@
           {% for s in character.stories %}
             <li>
               <details class="story">
+                {% set storyText = s.body.replaceAll("\r\n", "\n").replaceAll("\r", "\n") %}
                 <summary>
                   <span class="story-title">{{ s.title }}</span>
                   {% if s.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
-                  <span class="story-extract">{{ s.body | truncate(140, false, "…") }}</span>
+                  <span class="story-extract">{{ storyText | truncate(140, false, "…") }}</span>
                 </summary>
                 <div class="story-body">
-                  {% for paragraph in s.body.split("\n\n") %}
-                    {% if paragraph | trim %}<p>{{ paragraph | trim }}</p>{% endif %}
+                  {% for paragraph in storyText | paragraphs %}
+                    {% if paragraph | trim %}
+                      <p>{% for line in paragraph.split("\n") %}{{ line | trim }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+                    {% endif %}
                   {% endfor %}
                 </div>
                 <p class="story-permalink"><a href="/stories/{{ s.slug }}">Open this story on its own page</a></p>
@@ -125,12 +132,13 @@
       {% endif %}
     </section>
 
-    {% if character.termsOfUse %}
+    {% if character.termsOfUse and character.termsOfUse.trim() %}
       <section class="summary-block ownership-block">
         <h2>Ownership</h2>
         <p>Designed by {{ credit(character.artistName, character.artistUrl) }}</p>
         <h3>Terms of use</h3>
-        <p class="terms">{{ character.termsOfUse }}</p>
+        {% set termsText = character.termsOfUse.replaceAll("\r\n", "\n").replaceAll("\r", "\n") %}
+        <p class="terms">{% for line in termsText.split("\n") %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
         <ul class="permissions">
           <li>Can be regifted: <strong>{{ "Allowed" if character.canRegift else "Not allowed" }}</strong></li>
           <li>Can be retraded: <strong>{{ "Allowed" if character.canRetrade else "Not allowed" }}</strong></li>

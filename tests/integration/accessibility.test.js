@@ -232,6 +232,7 @@ test('gender and tag bubbles remain native, labelled, and keyboard operable', as
   assert.match(form, /<input type="radio" name="gender"/, 'gender is a native single-choice control');
   assert.match(form, /<input type="checkbox" name="tag"/, 'tags are native multi-choice controls');
   assert.match(form, /<label class="choice-bubble">[\s\S]*?<input[\s\S]*?<span>[\s\S]*?<\/label>/);
+  assert.doesNotMatch(form, /<details\b|<summary\b/, 'no filter choices are hidden in a disclosure');
   assert.match(css, /\.choice-bubble input:checked \+ span/, 'selected state is visually distinct');
   assert.match(css, /\.choice-bubble input:focus-visible \+ span/, 'keyboard focus is visible');
   assert.match(css, /\.bubble-group \.bubble-options\s*\{[^}]*flex-wrap:\s*wrap/s, 'bubbles wrap on narrow screens');
@@ -329,7 +330,7 @@ test('the home gallery grid, tiles and filter bar stay responsive and focusable'
   const sfw = css.match(/\.statistics-sfw\s*\{[^}]*stroke:\s*([^;}]+)/s)?.[1].trim();
   const nsfw = css.match(/\.statistics-nsfw\s*\{[^}]*stroke:\s*([^;}]+)/s)?.[1].trim();
   assert.ok(sfw && nsfw && sfw !== nsfw, 'SFW and NSFW chart arcs use different colors');
-  assert.match(css, /\.filter-bar summary:focus-visible/, 'disclosure summaries show visible focus');
+  assert.match(css, /\.choice-bubble input:focus-visible \+ span/, 'visible choices show keyboard focus');
   assert.match(css, /\.active-filter:focus-visible/, 'removable chips show visible focus');
   assert.match(css, /\.filter-bar[^{]*\{[^}]*flex-wrap:\s*wrap/s, 'the filter bar wraps rather than scrolling');
   assert.match(css, /prefers-reduced-motion:\s*reduce\)\s*\{[^}]*\.character-tile/s, 'tile motion respects reduced motion');

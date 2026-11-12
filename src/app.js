@@ -11,6 +11,7 @@ import { errorHandler, notFoundHandler } from './middleware/errors.js';
 import { requestLogging } from './middleware/logging.js';
 import { nsfw } from './middleware/nsfw.js';
 import { uploads } from './middleware/uploads.js';
+import { splitParagraphs } from './lib/text.js';
 import { adminCharactersRouter } from './routes/admin/characters.js';
 import { adminDashboardRouter } from './routes/admin/dashboard.js';
 import { adminImagesRouter } from './routes/admin/images.js';
@@ -43,6 +44,7 @@ export function createApp({ config, db, logger = console }) {
     express: app,
     noCache: config.nodeEnv !== 'production',
   });
+  env.addFilter('paragraphs', splitParagraphs);
   app.set('view engine', 'njk');
 
   app.locals.db = db;

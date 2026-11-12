@@ -3,6 +3,7 @@
 {% block title %}{{ story.title }} — OC Gallery{% endblock %}
 
 {% block content %}
+  {% set storyText = story.body.replaceAll("\r\n", "\n").replaceAll("\r", "\n") %}
   <article class="story">
     <h1>{{ story.title }} {% if story.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}</h1>
 
@@ -14,8 +15,10 @@
     {% endif %}
 
     <div class="story-body">
-      {% for paragraph in story.body.split("\n\n") %}
-        <p>{{ paragraph }}</p>
+      {% for paragraph in storyText | paragraphs %}
+        {% if paragraph | trim %}
+          <p>{% for line in paragraph.split("\n") %}{{ line | trim }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+        {% endif %}
       {% endfor %}
     </div>
   </article>

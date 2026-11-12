@@ -2,11 +2,7 @@
   Plain GET form: filters are reflected back so the URL stays shareable and
   reloadable (FR-018), and it works with JavaScript disabled.
   Options come from the visible character set, so none can yield zero results.
-  Native <details> sections collapse long option lists without any script; a
-  section opens by itself when it holds an active filter, so a selection is
-  never hidden.
 #}
-{% set tagsOpen = applied.tags.length > 0 %}
 <form class="filters filter-bar" method="get" action="/" aria-label="Filter characters">
   <fieldset class="field filter-gender bubble-group">
     <legend>Gender</legend>
@@ -25,18 +21,17 @@
   </fieldset>
 
   {% if facets.tags.length %}
-    <details class="filter-section" data-filter-section="tags"{% if tagsOpen %} open{% endif %}>
-      <summary>Tags{% if tagsOpen %} ({{ applied.tags.length }}){% endif %}</summary>
-      <fieldset class="filter-options">
-        <legend class="visually-hidden">Tags</legend>
+    <fieldset class="field filter-tags bubble-group">
+      <legend>Tags</legend>
+      <div class="bubble-options">
         {% for t in facets.tags %}
           <label class="choice-bubble">
             <input type="checkbox" name="tag" value="{{ t.name }}" {% if t.name in applied.tags %}checked{% endif %}>
             <span>{{ t.name }} ({{ t.characterCount }})</span>
           </label>
         {% endfor %}
-      </fieldset>
-    </details>
+      </div>
+    </fieldset>
   {% endif %}
 
   <button type="submit" class="filter-apply">Apply filters</button>
