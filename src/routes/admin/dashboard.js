@@ -8,15 +8,16 @@ export function adminDashboardRouter() {
     const db = req.app.locals.db;
     const count = (table) => db.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n;
     const imageStatistics = getImageStatistics(db);
+    const { sfw, nsfw, total } = imageStatistics.totals;
     let chartOffset = 0;
-    imageStatistics.chart = imageStatistics.characters.map((character, index) => {
-      const percentage = imageStatistics.totals.total
-        ? (character.total / imageStatistics.totals.total) * 100
-        : 0;
-      const slice = { ...character, percentage, offset: chartOffset, colorIndex: index % 8 };
-      chartOffset += percentage;
-      return slice;
-    });
+    imageStatistics.chart = [['sfw', sfw], ['nsfw', nsfw]]
+      .filter(([, n]) => n > 0 && total > 0)
+      .map(([rating, n]) => {
+        const percentage = (n / total) * 100;
+        const arc = { rating, label: rating.toUpperCase(), count: n, percentage, offset: chartOffset };
+        chartOffset += percentage;
+        return arc;
+      });
 
     res.render('admin/dashboard.njk', {
       imageStatistics,

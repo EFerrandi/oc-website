@@ -1,6 +1,7 @@
 ﻿import { ValidationError } from '../middleware/errors.js';
 import { transaction } from '../db/index.js';
 import { normaliseName } from '../lib/names.js';
+import { findOrCreateArtist, validateNewArtist } from '../lib/artists.js';
 import { uniqueSlug } from '../lib/slug.js';
 import { listAllSlugs } from '../repositories/characters.js';
 import { deleteImageFiles, storeImage } from './images.js';
@@ -33,7 +34,7 @@ function exists(db, table, id) {
  * without an artist, a gender, terms of use, explicit permissions, at least
  * one job title, or at least one tag (FR-041, invariants I-1â€¦I-3).
  */
-export function validateCharacterInput(db, body) {
+export function validateCharacterInput(db, body, { allowNewArtist = false } = {}) {
   const fieldErrors = {};
 
   const name = normaliseName(body.name);
@@ -42,14 +43,25 @@ export function validateCharacterInput(db, body) {
   const shortDescription = String(body.short_description ?? '').trim();
   if (!shortDescription) fieldErrors.short_description = 'Enter a short description.';
 
+  const personality = body.personality === undefined
+    ? undefined
+    : String(body.personality).trim() || null;
+  const physicalDescription = body.physical_description === undefined
+    ? undefined
+    : String(body.physical_description).trim() || null;
+
   const termsOfUse = String(body.terms_of_use ?? '').trim();
   if (!termsOfUse) fieldErrors.terms_of_use = 'Enter the terms of use.';
 
   const genderId = Number(body.gender_id);
   if (!exists(db, 'gender', genderId)) fieldErrors.gender_id = 'Choose a gender from the managed list.';
 
-  const artistId = Number(body.artist_id);
-  if (!exists(db, 'artist', artistId)) fieldErrors.artist_id = 'Choose an artist.';
+  let artistId = Number(body.artist_id);
+  let newArtist = null;
+  if (allowNewArtist && body.artist_id === 'new') {
+    newArtist = validateNewArtist(body, 'new_designer_name', 'new_designer_website_url', fieldErrors);
+    artistId = null;
+  } else if (!exists(db, 'artist', artistId)) fieldErrors.artist_id = 'Choose an artist.';
 
   const jobTitles = asTextList(body['job_title[]'] ?? body.job_title);
   if (jobTitles.length === 0) fieldErrors.job_title = 'Add at least one job title.';
@@ -72,9 +84,12 @@ export function validateCharacterInput(db, body) {
   return {
     name,
     shortDescription,
+    personality,
+    physicalDescription,
     termsOfUse,
     genderId,
     artistId,
+    newArtist,
     jobTitles,
     tagIds,
     canRegift: body.can_regift === '1',
@@ -93,8 +108,12 @@ function validateImageInput(db, body, file) {
   const altText = String(body.image_alt_text ?? '').trim();
   if (!altText) fieldErrors.image_alt_text = 'Enter alt text describing the image.';
 
-  const artistId = Number(body.image_artist_id);
-  if (!exists(db, 'artist', artistId)) fieldErrors.image_artist_id = 'Choose the artist who made this image.';
+  let artistId = Number(body.image_artist_id);
+  let newArtist = null;
+  if (body.image_artist_id === 'new') {
+    newArtist = validateNewArtist(body, 'new_image_artist_name', 'new_image_artist_website_url', fieldErrors);
+    artistId = null;
+  } else if (!exists(db, 'artist', artistId)) fieldErrors.image_artist_id = 'Choose the artist who made this image.';
 
   if (Object.keys(fieldErrors).length > 0) {
     throw new ValidationError('The image could not be saved', fieldErrors);
@@ -103,6 +122,7 @@ function validateImageInput(db, body, file) {
   return {
     altText,
     artistId,
+    newArtist,
     shortDescription: String(body.image_short_description ?? '').trim() || null,
     isNsfw: asBool(body.image_is_nsfw),
   };
@@ -131,7 +151,7 @@ function replaceLinks(db, characterId, { jobTitles, tagIds }) {
  * character nor an orphaned upload.
  */
 export async function createCharacterWithImage(db, { body, file, config }) {
-  const characterInput = validateCharacterInput(db, body);
+  const characterInput = validateCharacterInput(db, body, { allowNewArtist: true });
   const imageInput = validateImageInput(db, body, file);
 
   const stored = await storeImage({ buffer: file.buffer, mimeType: file.mimetype, config });
@@ -139,6 +159,13 @@ export async function createCharacterWithImage(db, { body, file, config }) {
   try {
     return transaction(db, () => {
       const at = new Date().toISOString();
+      const artistCache = new Map();
+      const designerId = characterInput.newArtist
+        ? findOrCreateArtist(db, characterInput.newArtist, at, artistCache)
+        : characterInput.artistId;
+      const imageArtistId = imageInput.newArtist
+        ? findOrCreateArtist(db, imageInput.newArtist, at, artistCache)
+        : imageInput.artistId;
 
       const imageId = Number(db.prepare(`
         INSERT INTO image
@@ -148,21 +175,23 @@ export async function createCharacterWithImage(db, { body, file, config }) {
       `).run(
         stored.fileName, stored.previewFileName, stored.mimeType, stored.byteSize,
         stored.width, stored.height, imageInput.altText, imageInput.shortDescription,
-        imageInput.artistId, imageInput.isNsfw ? 1 : 0, at, at,
+        imageArtistId, imageInput.isNsfw ? 1 : 0, at, at,
       ).lastInsertRowid);
 
       const slug = uniqueSlug(characterInput.name, listAllSlugs(db));
 
       const characterId = Number(db.prepare(`
         INSERT INTO character
-          (name, slug, gender_id, short_description, terms_of_use,
+          (name, slug, gender_id, short_description, personality, physical_description, terms_of_use,
            can_regift, can_retrade, can_resell, artist_id, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         characterInput.name, slug, characterInput.genderId, characterInput.shortDescription,
-        characterInput.termsOfUse, characterInput.canRegift ? 1 : 0,
+        characterInput.personality ?? null, characterInput.physicalDescription ?? null,
+        characterInput.termsOfUse,
+        characterInput.canRegift ? 1 : 0,
         characterInput.canRetrade ? 1 : 0, characterInput.canResell ? 1 : 0,
-        characterInput.artistId, at, at,
+        designerId, at, at,
       ).lastInsertRowid);
 
       db.prepare('INSERT INTO character_image (character_id, image_id, position) VALUES (?, ?, 0)')
@@ -201,7 +230,10 @@ export function updateCharacter(db, id, body) {
     crop[field] = value;
   }
 
-  const current = db.prepare('SELECT id, name FROM character WHERE id = ?').get(id);
+  const current = db.prepare(`
+    SELECT id, name, personality, physical_description AS physicalDescription
+    FROM character WHERE id = ?
+  `).get(id);
   if (!current) throw new ValidationError('Character not found');
 
   // An existing character must keep at least one image; the edit form cannot
@@ -233,13 +265,17 @@ export function updateCharacter(db, id, body) {
   return transaction(db, () => {
     db.prepare(`
       UPDATE character SET
-        name = ?, gender_id = ?, short_description = ?, terms_of_use = ?,
+        name = ?, gender_id = ?, short_description = ?, personality = ?,
+        physical_description = ?, terms_of_use = ?,
         can_regift = ?, can_retrade = ?, can_resell = ?, artist_id = ?,
         avatar_image_id = ?, avatar_crop_x = ?, avatar_crop_y = ?,
         avatar_crop_zoom = ?, updated_at = ?
       WHERE id = ?
     `).run(
-      input.name, input.genderId, input.shortDescription, input.termsOfUse,
+      input.name, input.genderId, input.shortDescription,
+      input.personality === undefined ? current.personality : input.personality,
+      input.physicalDescription === undefined ? current.physicalDescription : input.physicalDescription,
+      input.termsOfUse,
       input.canRegift ? 1 : 0, input.canRetrade ? 1 : 0, input.canResell ? 1 : 0,
       input.artistId, avatarImageId, crop.avatar_crop_x, crop.avatar_crop_y,
       crop.avatar_crop_zoom, new Date().toISOString(), id,

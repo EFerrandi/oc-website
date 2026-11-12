@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import request from 'supertest';
@@ -105,6 +106,48 @@ test('the profile reads header, then images, then stories', async (t) => {
   const avatar = html.indexOf('class="profile-avatar"');
   const summary = html.indexOf('class="profile-summary"');
   assert.ok(header < avatar && avatar < summary, 'the avatar must lead the header, with the summary beside it');
+});
+
+test('personality and physical descriptions appear before relationships as escaped paragraphs', async (t) => {
+  const { app, db, ids } = withApp(t);
+  db.prepare('UPDATE character SET personality = ?, physical_description = ? WHERE id = ?')
+    .run('Curious <script>alert(1)</script>.\n\nKind and thoughtful.', 'Tall.\n\nSilver-haired.', ids.aria);
+
+  const html = (await profile(app)).text;
+  const relationships = html.indexOf('class="profile-relationships"');
+  const personality = html.indexOf('class="profile-personality"');
+  const physical = html.indexOf('class="profile-physical-description"');
+  const stories = html.indexOf('class="profile-stories"');
+
+  assert.ok(personality < physical && physical < relationships, 'Personality then Physical Description precede Relationships');
+  assert.ok(relationships < stories, 'Relationships remain before Stories');
+  assert.match(html, /Curious &lt;script&gt;alert\(1\)&lt;\/script&gt;\./);
+  assert.match(html, /<p>Kind and thoughtful\.<\/p>/);
+  assert.match(html, /<p>Silver-haired\.<\/p>/);
+});
+
+test('CRLF line endings in descriptions preserve paragraph breaks', async (t) => {
+  const { app, db, ids } = withApp(t);
+  db.prepare('UPDATE character SET personality = ? WHERE id = ?')
+    .run('First thought.\r\n\r\nSecond thought.', ids.aria);
+
+  const html = (await profile(app)).text;
+  assert.match(html, /<p>First thought\.<\/p>\s*<p>Second thought\.<\/p>/);
+});
+
+test('empty character descriptions produce no public profile sections', async (t) => {
+  const { app, db, ids } = withApp(t);
+  db.prepare('UPDATE character SET personality = NULL, physical_description = NULL WHERE id = ?').run(ids.aria);
+  const html = (await profile(app)).text;
+  assert.doesNotMatch(html, /class="profile-personality"/);
+  assert.doesNotMatch(html, /class="profile-physical-description"/);
+});
+
+test('personality and physical descriptions use story text width and paragraph spacing', async () => {
+  const css = await readFile(new URL('../../src/public/css/main.css', import.meta.url), 'utf8');
+  assert.match(css, /\.story-body,\s*\.profile-personality,\s*\.profile-physical-description\s*\{[^}]*max-width:\s*75ch/s);
+  assert.match(css, /\.story-body p,\s*\.profile-personality p,\s*\.profile-physical-description p\s*\{[^}]*margin:\s*0 0 0\.75rem/s);
+  assert.match(css, /\.story-body p,\s*\.profile-personality p,\s*\.profile-physical-description p\s*\{[^}]*max-width:\s*70ch/s);
 });
 
 // T060 — FR-041, FR-041a, FR-041b, SC-014.

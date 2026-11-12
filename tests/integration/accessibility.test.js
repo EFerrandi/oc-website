@@ -324,7 +324,11 @@ test('the home gallery grid, tiles and filter bar stay responsive and focusable'
   assert.match(css, /\.character-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill/s, 'the tile grid is fluid');
   assert.match(css, /\.character-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s, 'at least two columns on narrow screens');
   assert.match(css, /\.character-tile \.card-thumb\s*\{[^}]*aspect-ratio:\s*1 \/ 1[^}]*object-fit:\s*cover/s, 'square cover-cropped thumbnails');
+  assert.match(css, /\.character-tile \.card-thumb-frame\s*\{[^}]*overflow:\s*hidden[^}]*aspect-ratio:\s*1 \/ 1/s, 'avatar frame clips zoomed images');
   assert.match(css, /\.character-tile a:focus-visible/, 'tiles show a visible focus state');
+  const sfw = css.match(/\.statistics-sfw\s*\{[^}]*stroke:\s*([^;}]+)/s)?.[1].trim();
+  const nsfw = css.match(/\.statistics-nsfw\s*\{[^}]*stroke:\s*([^;}]+)/s)?.[1].trim();
+  assert.ok(sfw && nsfw && sfw !== nsfw, 'SFW and NSFW chart arcs use different colors');
   assert.match(css, /\.filter-bar summary:focus-visible/, 'disclosure summaries show visible focus');
   assert.match(css, /\.active-filter:focus-visible/, 'removable chips show visible focus');
   assert.match(css, /\.filter-bar[^{]*\{[^}]*flex-wrap:\s*wrap/s, 'the filter bar wraps rather than scrolling');

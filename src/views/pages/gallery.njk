@@ -38,12 +38,16 @@
           <li class="card character-tile">
             <a href="/characters/{{ c.slug }}">
               {% if c.avatar %}
-                <img class="card-thumb" src="/media/{{ c.avatar.id }}" alt="{{ c.avatar.altText }}" loading="lazy"
-                     style="object-position: {{ c.avatar.cropX or 50 }}% {{ c.avatar.cropY or 50 }}%; transform: scale({{ c.avatar.cropZoom or 1 }}); transform-origin: {{ c.avatar.cropX or 50 }}% {{ c.avatar.cropY or 50 }}%;">
+                <div class="card-thumb-frame">
+                  <img class="card-thumb" src="/media/{{ c.avatar.id }}" alt="{{ c.avatar.altText }}" loading="lazy"
+                       style="object-position: {{ c.avatar.cropX or 50 }}% {{ c.avatar.cropY or 50 }}%; transform: scale({{ c.avatar.cropZoom or 1 }}); transform-origin: {{ c.avatar.cropX or 50 }}% {{ c.avatar.cropY or 50 }}%;">
+                </div>
               {% else %}
                 {# No image visible at this rating level — the character is still
                    listed, with the neutral placeholder (FR-014). #}
-                <img class="card-thumb" src="/img/placeholder-avatar.svg" alt="No image available for {{ c.name }}">
+                <div class="card-thumb-frame">
+                  <img class="card-thumb" src="/img/placeholder-avatar.svg" alt="No image available for {{ c.name }}">
+                </div>
               {% endif %}
 
               <div class="card-body">

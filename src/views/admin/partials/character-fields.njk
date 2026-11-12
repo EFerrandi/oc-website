@@ -2,7 +2,7 @@
   Shared character form fields. `values` holds either submitted values (after a
   validation failure) or the existing character, so nothing typed is ever lost.
 #}
-{% macro characterFields(options, values, selectedTagIds, selectedTraitIds, titles) %}
+{% macro characterFields(options, values, selectedTagIds, selectedTraitIds, titles, allowNewArtist=false) %}
   <div class="field">
     <label for="name">Name</label>
     <input type="text" id="name" name="name" value="{{ values.name or '' }}" required>
@@ -26,6 +26,16 @@
     <textarea id="short_description" name="short_description" required>{{ values.short_description or values.shortDescription or '' }}</textarea>
   </div>
 
+  <div class="field">
+    <label for="personality">Personality</label>
+    <textarea id="personality" name="personality">{% if values.personality is defined %}{{ values.personality }}{% endif %}</textarea>
+  </div>
+
+  <div class="field">
+    <label for="physical_description">Physical description</label>
+    <textarea id="physical_description" name="physical_description">{% if values.physical_description is defined %}{{ values.physical_description }}{% elif values.physicalDescription is defined %}{{ values.physicalDescription }}{% endif %}</textarea>
+  </div>
+
   <fieldset class="field">
     <legend>Job titles (at least one)</legend>
     {% for i in range(0, 5) %}
@@ -42,10 +52,13 @@
   <fieldset class="field">
     <legend>Permissions</legend>
     {% for key, label in {"can_regift": "Can be regifted", "can_retrade": "Can be retraded", "can_resell": "Can be resold"} %}
+      {% set camel = {"can_regift": "canRegift", "can_retrade": "canRetrade", "can_resell": "canResell"}[key] %}
+      {% set current = values[key] if values[key] is defined else values[camel] %}
+      {% set current = (current | string) if current is defined and current != null else '' %}
       <p>
         {{ label }}:
-        <label class="inline"><input type="radio" name="{{ key }}" value="1" {% if values[key] == "1" or values[key] == 1 %}checked{% endif %}> Allowed</label>
-        <label class="inline"><input type="radio" name="{{ key }}" value="0" {% if values[key] == "0" or values[key] == 0 %}checked{% endif %}> Not allowed</label>
+        <label class="inline"><input type="radio" name="{{ key }}" value="1" {% if current == "1" %}checked{% endif %}> Allowed</label>
+        <label class="inline"><input type="radio" name="{{ key }}" value="0" {% if current == "0" %}checked{% endif %}> Not allowed</label>
       </p>
     {% endfor %}
   </fieldset>
@@ -57,11 +70,21 @@
       {% for artist in options.artists %}
         <option value="{{ artist.id }}" {% if ((values.artist_id or '') | string) == (artist.id | string) or values.artistId == artist.id %}selected{% endif %}>{{ artist.name }}</option>
       {% endfor %}
+      {% if allowNewArtist %}
+        <option value="new" {% if values.artist_id == "new" %}selected{% endif %}>Add a new artist…</option>
+      {% endif %}
     </select>
   </div>
-
-  <fieldset class="field bubble-group">
-    <legend>Tags (at least one required)</legend>
+  {% if allowNewArtist %}
+    <fieldset class="field">
+      <legend>New designer details (when “Add a new artist…” is selected)</legend>
+      <label for="new_designer_name">Artist name</label>
+      <input type="text" id="new_designer_name" name="new_designer_name" value="{{ values.new_designer_name or '' }}">
+      <label for="new_designer_website_url">Artist website (optional)</label>
+      <input type="url" id="new_designer_website_url" name="new_designer_website_url"
+             value="{{ values.new_designer_website_url or '' }}" placeholder="https://example.com">
+    </fieldset>
+  {% endif %} (at least one required)</legend>
     <div class="bubble-options">
       {% for t in options.tags %}
         <label class="choice-bubble">

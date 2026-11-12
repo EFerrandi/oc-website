@@ -60,14 +60,13 @@
 .statistics-chart circle { fill: none; stroke-width: 7; }
 .statistics-chart-background { stroke: var(--surface-2); }
 .statistics-slice { stroke-linecap: butt; }
-.statistics-color-0 { stroke: var(--brand-light); }
-.statistics-color-1 { stroke: var(--brand-medium); }
-.statistics-color-2 { stroke: #78c7e8; }
-.statistics-color-3 { stroke: #8ee0b0; }
-.statistics-color-4 { stroke: #f4cb74; }
-.statistics-color-5 { stroke: #f28aa8; }
-.statistics-color-6 { stroke: #b7a4ff; }
-.statistics-color-7 { stroke: #e7a66f; }
+.statistics-sfw { stroke: #4fd1a5; }
+.statistics-nsfw { stroke: #f2607f; }
+.statistics-legend { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+.statistics-legend li { display: inline-flex; align-items: center; gap: var(--space-2); }
+.statistics-swatch { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 50%; }
+.statistics-swatch.statistics-sfw { background: #4fd1a5; }
+.statistics-swatch.statistics-nsfw { background: #f2607f; }
 .statistics-table { width: 100%; border-collapse: collapse; }
 .statistics-table th,
 .statistics-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); text-align: left; }
@@ -786,7 +785,9 @@ select option { background: var(--surface-2); color: var(--text); }
 .summary-block,
 .profile-images,
 .profile-stories,
-.profile-relationships {
+.profile-relationships,
+.profile-personality,
+.profile-physical-description {
   min-width: 0;
 }
 .profile-summary > h1 { color: var(--brand-light); }
@@ -801,12 +802,16 @@ select option { background: var(--surface-2); color: var(--text); }
 .profile-images,
 .profile-stories,
 .profile-relationships,
+.profile-personality,
+.profile-physical-description,
 .artist-group {
   margin-top: var(--space-7);
 }
 .profile-images > h2,
 .profile-stories > h2,
 .profile-relationships > h2,
+.profile-personality > h2,
+.profile-physical-description > h2,
 .artist-group > h2 { color: var(--brand-light); }
 .terms { white-space: pre-line; max-width: 75ch; }
 .permissions { padding-left: 1.25rem; }
@@ -823,8 +828,16 @@ select option { background: var(--surface-2); color: var(--text); }
 .story > summary { border-radius: var(--radius-sm); }
 .story > summary:focus-visible { outline-offset: 5px; }
 .story-title { color: var(--brand-light); }
-.story-body { max-width: 75ch; }
-.story-body p { overflow-wrap: anywhere; }
+.story-body,
+.profile-personality,
+.profile-physical-description { max-width: 75ch; }
+.story-body p,
+.profile-personality p,
+.profile-physical-description p {
+  margin: 0 0 0.75rem;
+  max-width: 70ch;
+  overflow-wrap: anywhere;
+}
 .story-permalink { margin-bottom: 0; }
 
 .relationship-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr)); }
@@ -1094,9 +1107,17 @@ button:disabled {
 .character-tile a { height: 100%; border-radius: inherit; }
 .character-tile a:focus-visible { outline: 3px solid var(--brand-light); outline-offset: 3px; }
 
+.character-tile .card-thumb-frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+}
+
 .character-tile .card-thumb {
   aspect-ratio: 1 / 1;
   width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 

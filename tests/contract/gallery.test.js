@@ -91,6 +91,7 @@ test('each character tile is one link holding only avatar, name and job titles',
     const links = tile.match(/<a\b[^>]*href="\/characters\/[^"]+"/g) ?? [];
     assert.equal(links.length, 1, `a tile must hold exactly one character link: ${tile}`);
     assert.match(tile, /<img\b[^>]*class="card-thumb"[^>]*alt="[^"]+"/, 'thumbnail has alt text');
+    assert.match(tile, /<div class="card-thumb-frame">\s*<img\b[^>]*class="card-thumb"[^>]*>\s*<\/div>\s*<div class="card-body">/, 'avatar sits in a clipping frame before the text');
     assert.match(tile, /class="card-name"/, 'tile shows the name');
 
     for (const extra of ['Female', 'Male', 'cute', 'feral', 'Greed', 'Patience']) {

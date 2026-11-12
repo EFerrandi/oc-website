@@ -24,25 +24,29 @@
     </p>
 
     <div class="statistics-layout">
+      <div class="statistics-chart-block">
       <svg class="statistics-chart" viewBox="0 0 42 42" role="img"
            aria-labelledby="statistics-chart-title statistics-chart-description">
         <title id="statistics-chart-title">Images per character</title>
         <desc id="statistics-chart-description">
-          Pie chart showing each character's share of {{ imageStatistics.totals.total }} image-character associations.
+          Pie chart showing the share of SFW and NSFW among {{ imageStatistics.totals.total }} image-character associations.
         </desc>
         <circle class="statistics-chart-background" cx="21" cy="21" r="15.9155"></circle>
         {% for slice in imageStatistics.chart %}
-          {% if slice.percentage > 0 %}
-            <circle class="statistics-slice statistics-color-{{ slice.colorIndex }}"
-                    cx="21" cy="21" r="15.9155"
-                    stroke-dasharray="{{ slice.percentage }} {{ 100 - slice.percentage }}"
-                    stroke-dashoffset="-{{ slice.offset }}"
-                    transform="rotate(-90 21 21)">
-              <title>{{ slice.name }}: {{ slice.total }} images</title>
-            </circle>
-          {% endif %}
+          <circle class="statistics-slice statistics-{{ slice.rating }}"
+                  cx="21" cy="21" r="15.9155"
+                  stroke-dasharray="{{ slice.percentage }} {{ 100 - slice.percentage }}"
+                  stroke-dashoffset="-{{ slice.offset }}"
+                  transform="rotate(-90 21 21)">
+            <title>{{ slice.label }}: {{ slice.count }} image{{ "" if slice.count == 1 else "s" }}</title>
+          </circle>
         {% endfor %}
       </svg>
+      <ul class="statistics-legend">
+        <li><span class="statistics-swatch statistics-sfw" aria-hidden="true"></span> SFW</li>
+        <li><span class="statistics-swatch statistics-nsfw" aria-hidden="true"></span> NSFW</li>
+      </ul>
+      </div>
 
       <table class="statistics-table">
         <caption>Image-character associations by character and content rating</caption>

@@ -60,6 +60,24 @@
       {% endif %}
     </section>
 
+    {% if character.personality %}
+      <section class="profile-personality">
+        <h2>Personality</h2>
+        {% for paragraph in character.personality.replace("\r\n", "\n").replace("\r", "\n").split("\n\n") %}
+          {% if paragraph | trim %}<p>{{ paragraph | trim }}</p>{% endif %}
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    {% if character.physicalDescription %}
+      <section class="profile-physical-description">
+        <h2>Physical Description</h2>
+        {% for paragraph in character.physicalDescription.replace("\r\n", "\n").replace("\r", "\n").split("\n\n") %}
+          {% if paragraph | trim %}<p>{{ paragraph | trim }}</p>{% endif %}
+        {% endfor %}
+      </section>
+    {% endif %}
+
     <section class="profile-relationships">
       <h2>Relationships</h2>
       {% if character.relationships.length %}

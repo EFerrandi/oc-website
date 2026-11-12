@@ -50,6 +50,7 @@ function resolveInlineTaxonomy(db, body) {
 function characterDetail(db, id) {
   const character = db.prepare(`
     SELECT id, name, slug, gender_id AS genderId, short_description AS shortDescription,
+           personality, physical_description AS physicalDescription,
            terms_of_use AS termsOfUse, can_regift AS canRegift, can_retrade AS canRetrade,
            can_resell AS canResell, artist_id AS artistId, avatar_image_id AS avatarImageId,
            avatar_crop_x AS avatarCropX, avatar_crop_y AS avatarCropY,
@@ -147,6 +148,13 @@ export function adminCharactersRouter(upload) {
       character.avatarCropX = req.body.avatar_crop_x;
       character.avatarCropY = req.body.avatar_crop_y;
       character.avatarCropZoom = req.body.avatar_crop_zoom;
+      if (req.body.personality !== undefined) character.personality = req.body.personality;
+      if (req.body.physical_description !== undefined) {
+        character.physicalDescription = req.body.physical_description;
+      }
+      for (const key of ['can_regift', 'can_retrade', 'can_resell']) {
+        if (req.body[key] !== undefined) character[key] = req.body[key];
+      }
 
       res.status(422);
       return res.render('admin/character-edit.njk', {

@@ -15,6 +15,17 @@
     }
   }
 
+  document.querySelectorAll('.filter-bar').forEach(function (form) {
+    var tags = form.querySelectorAll('input[type="checkbox"][name="tag"]');
+    var apply = form.querySelector('.filter-apply');
+    if (!tags.length || !apply) return;
+
+    tags.forEach(function (tag) {
+      tag.addEventListener('change', function () { form.submit(); });
+    });
+    apply.hidden = true;
+  });
+
   document.querySelectorAll('[data-crop-form]').forEach(function (form) {
     var preview = form.querySelector('[data-crop-preview]');
     var x = form.querySelector('[name="avatar_crop_x"]');

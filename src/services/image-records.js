@@ -1,6 +1,7 @@
 import { ValidationError } from '../middleware/errors.js';
 import { transaction } from '../db/index.js';
 import { nameKey, normaliseName } from '../lib/names.js';
+import { parseArtistWebsite } from '../lib/artists.js';
 import { deleteImageFiles, storeImage } from './images.js';
 
 function asIdList(value) {
@@ -29,17 +30,9 @@ function validate(db, body, { requireFile, file }) {
     const name = normaliseName(body.new_artist_name);
     if (!name) fieldErrors.new_artist_name = 'Enter the artist name.';
 
-    let websiteUrl = null;
-    const rawUrl = String(body.new_artist_website_url ?? '').trim();
-    if (rawUrl) {
-      try {
-        const parsed = new URL(rawUrl);
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('bad protocol');
-        websiteUrl = parsed.href;
-      } catch {
-        fieldErrors.new_artist_website_url = 'Enter a full web address starting with http:// or https://, or leave it blank.';
-      }
-    }
+    const parsedSite = parseArtistWebsite(body.new_artist_website_url);
+    if (parsedSite.error) fieldErrors.new_artist_website_url = parsedSite.error;
+    const websiteUrl = parsedSite.websiteUrl ?? null;
 
     if (name) {
       const duplicate = db.prepare('SELECT name FROM artist').all()

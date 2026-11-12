@@ -82,6 +82,8 @@ export function findCharacterBySlug(db, slug, { showNsfw, includeOwnership = fal
   const row = db.prepare(`
     SELECT ${CHARACTER_COLUMNS},
            g.name AS genderName,
+           c.personality AS personality,
+           c.physical_description AS physicalDescription,
            a.name AS artistName, a.website_url AS artistUrl
            ${includeOwnership ? `,
            c.terms_of_use AS termsOfUse, c.can_regift AS canRegift,
