@@ -919,6 +919,33 @@ select option { background: var(--surface-2); color: var(--text); }
 .admin-area > ul:not(.field-errors) > li { line-height: 1.6; }
 .admin-area > h1 { color: var(--brand-light); }
 .admin-area > p > .chip { display: inline-block; }
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  margin: var(--space-5) 0;
+}
+.btn-action {
+  flex: 1 1 12rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.5rem;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 2px solid var(--accent);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: var(--shadow-1);
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+.btn-action:hover { background: var(--brand-light); border-color: var(--brand-light); }
+.btn-action:focus-visible { outline: 3px solid var(--brand-light); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .btn-action { transition: none; } }
 .admin-area .field { max-width: 52rem; }
 .admin-area input[type="checkbox"] { vertical-align: middle; }
 .admin-area .inline-form {

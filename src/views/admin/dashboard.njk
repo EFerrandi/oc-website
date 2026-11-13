@@ -5,6 +5,12 @@
 {% block admin %}
   <h1>Admin</h1>
 
+  <nav class="admin-actions" aria-label="Create new content">
+    <a class="btn-action" href="/admin/characters/new">Add a character</a>
+    <a class="btn-action" href="/admin/images/new">Add an image</a>
+    <a class="btn-action" href="/admin/stories/new">Add a story</a>
+  </nav>
+
   <ul class="admin-counts">
     <li>{{ counts.characters }} characters</li>
     <li>{{ counts.images }} images</li>
@@ -65,8 +71,4 @@
       </table>
     </div>
   </section>
-
-  <p><a class="chip" href="/admin/characters/new">Add a character</a></p>
-  <p><a class="chip" href="/admin/images/new">Add an image</a></p>
-  <p><a class="chip" href="/admin/stories/new">Add a story</a></p>
 {% endblock %}

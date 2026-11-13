@@ -88,3 +88,18 @@ test('the filter apply button remains available when no gender or tag controls a
   assert.equal(listeners.size, 0);
   assert.equal(form.submitCount, 0);
 });
+
+test('image-artist fields are hidden while "same artist as the designer" is ticked', () => {
+  const sameBox = { checked: true, handler: null, addEventListener(n, cb) { this.handler = cb; } };
+  const fields = { hidden: false };
+  const document = {
+    querySelector(selector) { return selector.includes('image_artist_same_as_designer') ? sameBox : null; },
+    getElementById(id) { return id === 'image-artist-fields' ? fields : null; },
+    querySelectorAll() { return []; },
+  };
+  vm.runInNewContext(source, { document });
+  assert.equal(fields.hidden, true, 'hidden on load when pre-ticked');
+  sameBox.checked = false;
+  sameBox.handler();
+  assert.equal(fields.hidden, false);
+});

@@ -53,6 +53,15 @@
     updatePreview();
   });
 
+  // Hide the image-artist fields while "same artist as the designer" is ticked.
+  var sameBox = document.querySelector('input[name="image_artist_same_as_designer"]');
+  var artistFields = sameBox ? document.getElementById('image-artist-fields') : null;
+  if (sameBox && artistFields) {
+    var syncArtistFields = function () { artistFields.hidden = sameBox.checked; };
+    sameBox.addEventListener('change', syncArtistFields);
+    syncArtistFields();
+  }
+
   // Respect reduced-motion: videos stop autoplaying and gain controls.
   if (typeof window !== 'undefined' && window.matchMedia
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

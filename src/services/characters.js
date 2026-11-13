@@ -98,7 +98,7 @@ export function validateCharacterInput(db, body, { allowNewArtist = false } = {}
   };
 }
 
-function validateImageInput(db, body, file) {
+function validateImageInput(db, body, file, { sameAsDesigner = false } = {}) {
   const fieldErrors = {};
 
   if (!file || !file.buffer || file.buffer.length === 0) {
@@ -110,7 +110,10 @@ function validateImageInput(db, body, file) {
 
   let artistId = Number(body.image_artist_id);
   let newArtist = null;
-  if (body.image_artist_id === 'new') {
+  if (sameAsDesigner) {
+    // The designer becomes the image's artist; the separate fields are ignored.
+    artistId = null;
+  } else if (body.image_artist_id === 'new') {
     newArtist = validateNewArtist(body, 'new_image_artist_name', 'new_image_artist_website_url', fieldErrors);
     artistId = null;
   } else if (!exists(db, 'artist', artistId)) fieldErrors.image_artist_id = 'Choose the artist who made this image.';
@@ -152,7 +155,8 @@ function replaceLinks(db, characterId, { jobTitles, tagIds }) {
  */
 export async function createCharacterWithImage(db, { body, file, config }) {
   const characterInput = validateCharacterInput(db, body, { allowNewArtist: true });
-  const imageInput = validateImageInput(db, body, file);
+  const sameAsDesigner = body.image_artist_same_as_designer === '1';
+  const imageInput = validateImageInput(db, body, file, { sameAsDesigner });
 
   const stored = await storeImage({ buffer: file.buffer, mimeType: file.mimetype, config });
 
@@ -163,7 +167,7 @@ export async function createCharacterWithImage(db, { body, file, config }) {
       const designerId = characterInput.newArtist
         ? findOrCreateArtist(db, characterInput.newArtist, at, artistCache)
         : characterInput.artistId;
-      const imageArtistId = imageInput.newArtist
+      const imageArtistId = sameAsDesigner ? designerId : imageInput.newArtist
         ? findOrCreateArtist(db, imageInput.newArtist, at, artistCache)
         : imageInput.artistId;
 

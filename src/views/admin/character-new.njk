@@ -25,9 +25,15 @@
       <input type="text" id="image_alt_text" name="image_alt_text" value="{{ values.image_alt_text or '' }}" required>
     </div>
 
+    <label class="inline">
+      <input type="checkbox" name="image_artist_same_as_designer" value="1" {% if values.image_artist_same_as_designer == '1' %}checked{% endif %}>
+      Same artist as the designer
+    </label>
+
+    <div id="image-artist-fields">
     <div class="field">
-      <label for="image_artist_id">Artist (required)</label>
-      <select id="image_artist_id" name="image_artist_id" required>
+      <label for="image_artist_id">Artist (required unless same as the designer)</label>
+      <select id="image_artist_id" name="image_artist_id">
         <option value="">Choose…</option>
         {% for a in options.artists %}
           <option value="{{ a.id }}" {% if ((values.image_artist_id or '') | string) == (a.id | string) %}selected{% endif %}>{{ a.name }}</option>
@@ -44,6 +50,7 @@
       <input type="url" id="new_image_artist_website_url" name="new_image_artist_website_url"
              value="{{ values.new_image_artist_website_url or '' }}" placeholder="https://example.com">
     </fieldset>
+    </div>
 
     <div class="field">
       <label for="image_short_description">Image description (optional)</label>
