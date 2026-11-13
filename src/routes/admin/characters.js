@@ -67,7 +67,8 @@ function characterDetail(db, id) {
     ).all(id).map((r) => r.title),
     tagIds: db.prepare('SELECT tag_id AS id FROM character_tag WHERE character_id = ?').all(id).map((r) => r.id),
     images: db.prepare(`
-      SELECT i.id, i.alt_text AS altText, i.is_nsfw AS isNsfw
+      SELECT i.id, i.alt_text AS altText, i.is_nsfw AS isNsfw,
+             (i.mime_type LIKE 'video/%') AS isVideo
       FROM image i JOIN character_image ci ON ci.image_id = i.id
       WHERE ci.character_id = ? ORDER BY ci.position, i.id
     `).all(id),

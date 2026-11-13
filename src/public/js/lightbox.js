@@ -27,10 +27,23 @@
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', link.dataset.alt || 'Full size image');
 
-    var img = document.createElement('img');
-    // The anchor points at the HTML page; the original bytes live one level in.
-    img.src = link.getAttribute('href').replace(/^\/images\//, '/media/') + '/full';
-    img.alt = link.dataset.alt || '';
+    var img;
+    var src = link.getAttribute('href').replace(/^\/images\//, '/media/') + '/full';
+    if (link.dataset.video) {
+      img = document.createElement('video');
+      img.controls = true;
+      img.autoplay = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      img.muted = true;
+      img.loop = true;
+      img.setAttribute('playsinline', '');
+      img.setAttribute('aria-label', link.dataset.alt || 'Video');
+      img.src = src;
+    } else {
+      img = document.createElement('img');
+      // The anchor points at the HTML page; the original bytes live one level in.
+      img.src = src;
+      img.alt = link.dataset.alt || '';
+    }
 
     var button = document.createElement('button');
     button.type = 'button';

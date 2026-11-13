@@ -1,4 +1,4 @@
-﻿import { ValidationError } from '../middleware/errors.js';
+import { ValidationError } from '../middleware/errors.js';
 import { transaction } from '../db/index.js';
 import { normaliseName } from '../lib/names.js';
 import { findOrCreateArtist, validateNewArtist } from '../lib/artists.js';
@@ -199,8 +199,11 @@ export async function createCharacterWithImage(db, { body, file, config }) {
 
       // avatar_image_id is nullable only to break the circular insert between
       // character and image; it is set before this transaction commits, so a
-      // committed character always has a designated avatar (invariant I-6).
-      db.prepare('UPDATE character SET avatar_image_id = ? WHERE id = ?').run(imageId, characterId);
+      // committed still-image character always has a designated avatar (I-6).
+      // A video can never be an avatar, so such a character keeps none.
+      if (!stored.mimeType.startsWith('video/')) {
+        db.prepare('UPDATE character SET avatar_image_id = ? WHERE id = ?').run(imageId, characterId);
+      }
 
       replaceLinks(db, characterId, characterInput);
 
@@ -247,19 +250,27 @@ export function updateCharacter(db, id, body) {
 
   let avatarImageId = body.avatar_image_id ? Number(body.avatar_image_id) : null;
   if (avatarImageId) {
-    const linked = db.prepare(
-      'SELECT 1 FROM character_image WHERE character_id = ? AND image_id = ?',
-    ).get(id, avatarImageId);
+    const linked = db.prepare(`
+      SELECT i.mime_type AS mimeType FROM character_image ci JOIN image i ON i.id = ci.image_id
+      WHERE ci.character_id = ? AND ci.image_id = ?
+    `).get(id, avatarImageId);
 
     if (!linked) {
       throw new ValidationError('The character could not be saved', {
         avatar_image_id: 'The chosen avatar must be one of this character\'s own images.',
       });
     }
+    if (linked.mimeType.startsWith('video/')) {
+      throw new ValidationError('The character could not be saved', {
+        avatar_image_id: 'A video cannot be an avatar. Choose a still image.',
+      });
+    }
   } else {
-    avatarImageId = db.prepare(
-      'SELECT image_id FROM character_image WHERE character_id = ? ORDER BY position, rowid LIMIT 1',
-    ).get(id).image_id;
+    avatarImageId = db.prepare(`
+      SELECT ci.image_id FROM character_image ci JOIN image i ON i.id = ci.image_id
+      WHERE ci.character_id = ? AND i.mime_type NOT LIKE 'video/%'
+      ORDER BY ci.position, ci.rowid LIMIT 1
+    `).get(id)?.image_id ?? null;
   }
 
   return transaction(db, () => {

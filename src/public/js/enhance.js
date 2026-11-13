@@ -52,4 +52,14 @@
     }
     updatePreview();
   });
+
+  // Respect reduced-motion: videos stop autoplaying and gain controls.
+  if (typeof window !== 'undefined' && window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('video[autoplay]').forEach(function (video) {
+      video.removeAttribute('autoplay');
+      video.pause();
+      video.controls = true;
+    });
+  }
 })();

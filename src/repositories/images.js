@@ -1,7 +1,7 @@
 const IMAGE_COLUMNS = `
   i.id, i.file_name AS fileName, i.preview_file_name AS previewFileName,
   i.mime_type AS mimeType, i.byte_size AS byteSize, i.width, i.height,
-  i.alt_text AS altText, i.short_description AS shortDescription,
+    (i.mime_type LIKE 'video/%') AS isVideo,  i.alt_text AS altText, i.short_description AS shortDescription,
   i.artist_id AS artistId, i.is_nsfw AS isNsfw, i.created_at AS createdAt
 `;
 

@@ -97,7 +97,8 @@ the only directory you need to back up alongside `.env`.
 Originals are stored at whatever size they were uploaded; nothing is downscaled
 or re-encoded. Alongside each original, a smaller WebP preview is generated and
 that is what every listing page loads, so page weight does not grow with the
-size of the originals.
+size of the originals. MP4 and WebM videos are stored as uploaded with no
+preview; they autoplay muted and loop, and are never used as avatars.
 
 Clicking a preview opens the original. With JavaScript it appears in an
 overlay; without it, the browser navigates to `/images/:id`, which shows the

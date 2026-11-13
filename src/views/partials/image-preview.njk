@@ -7,11 +7,18 @@
          {{ imagePreview(img) }}
 #}
 {% macro imagePreview(img) %}
-  <a class="preview-link" href="/images/{{ img.id }}" data-alt="{{ img.altText }}">
+  <a class="preview-link" href="/images/{{ img.id }}" data-alt="{{ img.altText }}"{% if img.isVideo %} data-video="1"{% endif %}>
+    {% if img.isVideo %}
+    <video class="card-thumb"
+           src="/media/{{ img.id }}"
+           aria-label="{{ img.altText }}"
+           autoplay muted loop playsinline preload="metadata">{{ img.altText }}</video>
+    {% else %}
     <img class="card-thumb"
          src="/media/{{ img.id }}"
          alt="{{ img.altText }}"
          loading="lazy"
          decoding="async">
+    {% endif %}
   </a>
 {% endmacro %}

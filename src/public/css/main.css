@@ -314,7 +314,8 @@ textarea { min-height: 8rem; resize: vertical; }
   z-index: 50;
 }
 
-.lightbox img { max-width: 100%; max-height: 90vh; width: auto; object-fit: contain; }
+.lightbox img,
+.lightbox video { max-width: 100%; max-height: 90vh; width: auto; object-fit: contain; }
 .lightbox-close { position: absolute; top: 1rem; right: 1rem; }
 
 @media (max-width: 480px) {
@@ -868,9 +869,12 @@ select option { background: var(--surface-2); color: var(--text); }
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-2);
 }
-.image-view > img {
+.image-view > img,
+.image-view > video {
   max-height: 78vh;
   width: auto;
+  max-width: 100%;
+  display: block;
   margin-inline: auto;
   object-fit: contain;
   border-radius: var(--radius);

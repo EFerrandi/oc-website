@@ -30,7 +30,8 @@ export function mediaRouter() {
       const image = findVisibleImageById(db, id, { showNsfw: res.locals.showNsfw });
       if (!image) return next(new NotFoundError());
 
-      const isFull = variant === 'full';
+      // A video has no preview: both routes serve the stored original.
+      const isFull = variant === 'full' || image.isVideo === 1;
       const directory = isFull ? config.uploadDir : config.previewDir;
       const fileName = isFull ? image.fileName : image.previewFileName;
 

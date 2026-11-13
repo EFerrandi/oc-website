@@ -34,6 +34,40 @@ function runEnhancement({ tags = [], genders = [], apply = { hidden: false } } =
   return { apply, form, listeners };
 }
 
+function runWithMotionPreference(reduce, videos) {
+  const document = {
+    querySelector() { return null; },
+    querySelectorAll(selector) { return selector === 'video[autoplay]' ? videos : []; },
+  };
+  const window = { matchMedia: () => ({ matches: reduce }) };
+  vm.runInNewContext(source, { document, window });
+}
+
+function fakeVideo() {
+  return {
+    paused: false,
+    controls: false,
+    removed: [],
+    removeAttribute(name) { this.removed.push(name); },
+    pause() { this.paused = true; },
+  };
+}
+
+test('reduced motion stops autoplaying videos and gives them controls', () => {
+  const video = fakeVideo();
+  runWithMotionPreference(true, [video]);
+  assert.deepEqual(video.removed, ['autoplay']);
+  assert.equal(video.paused, true);
+  assert.equal(video.controls, true);
+});
+
+test('videos keep autoplaying when reduced motion is not requested', () => {
+  const video = fakeVideo();
+  runWithMotionPreference(false, [video]);
+  assert.equal(video.paused, false);
+  assert.equal(video.controls, false);
+});
+
 test('changing gender or a tag submits the existing filter form and hides its apply button', () => {
   const tag = {};
   const gender = {};

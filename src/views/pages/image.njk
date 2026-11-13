@@ -8,8 +8,15 @@
     <h1>{{ image.altText }}</h1>
     {# The original at its natural dimensions. This page is the no-JS
        destination of every preview anchor (FR-065). #}
+    {% if image.isVideo %}
+    <video src="/media/{{ image.id }}/full" aria-label="{{ image.altText }}"
+           controls autoplay muted loop playsinline preload="metadata">
+      <a href="/media/{{ image.id }}/full" download>Download the video</a>
+    </video>
+    {% else %}
     <img src="/media/{{ image.id }}/full" alt="{{ image.altText }}"
          width="{{ image.width }}" height="{{ image.height }}">
+    {% endif %}
 
     {% if image.isNsfw %}<p><span class="badge-nsfw">NSFW</span></p>{% endif %}
     {% if image.shortDescription %}<p>{{ image.shortDescription }}</p>{% endif %}

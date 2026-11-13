@@ -17,14 +17,14 @@
     <div class="field">
       <label for="avatar_image_id">Avatar</label>
       <select id="avatar_image_id" name="avatar_image_id" data-crop-avatar-select>
-        {% for img in character.images %}
+        {% for img in character.images %}{% if not img.isVideo %}
           <option value="{{ img.id }}" data-preview-src="/media/{{ img.id }}"
                   {% if selectedAvatarId == img.id %}selected{% endif %}>
             {{ img.altText }}{% if img.isNsfw %} (NSFW){% endif %}
           </option>
-        {% endfor %}
+        {% endif %}{% endfor %}
       </select>
-      <p class="hint">Must be one of this character's own images.</p>
+      <p class="hint">Must be one of this character's own still images; videos cannot be avatars.</p>
     </div>
 
     {% if selectedAvatar %}

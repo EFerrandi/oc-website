@@ -120,3 +120,33 @@ test('migration is recorded and does not change data when run again', (t) => {
   assert.ok(db.prepare('SELECT artist_id FROM character WHERE id = ?').get(ids.character));
   assert.ok(first > 0);
 });
+
+test('video migration keeps images and avatar links and enforces the video invariant', (t) => {
+  const { db, cleanup } = createLegacyDatabase();
+  t.after(cleanup);
+  const ids = seedLegacy(db);
+  db.prepare('UPDATE character SET avatar_image_id = ? WHERE id = ?').run(ids.image, ids.character);
+  db.prepare('INSERT INTO character_image (character_id, image_id, position) VALUES (?, ?, 0)')
+    .run(ids.character, ids.image);
+
+  migrate(db);
+
+  const kept = db.prepare('SELECT file_name AS f, preview_file_name AS p, width FROM image WHERE id = ?').get(ids.image);
+  assert.equal(kept.f, 'legacy.png');
+  assert.equal(kept.p, 'legacy-preview.webp');
+  assert.equal(db.prepare('SELECT avatar_image_id AS a FROM character WHERE id = ?').get(ids.character).a, ids.image);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM character_image WHERE image_id = ?').get(ids.image).n, 1);
+  assert.equal(db.prepare('PRAGMA foreign_key_check').all().length, 0);
+
+  const at = '2026-01-01T00:00:00.000Z';
+  const insert = (file, preview, mime, width) => db.prepare(`
+    INSERT INTO image (file_name, preview_file_name, mime_type, byte_size, width, height,
+      alt_text, artist_id, is_nsfw, created_at, updated_at)
+    VALUES (?, ?, ?, 10, ?, ?, 'alt', ?, 0, ?, ?)
+  `).run(file, preview, mime, width, width, ids.artist, at, at);
+
+  insert('clip.mp4', null, 'video/mp4', null);
+  assert.throws(() => insert('bad.mp4', 'bad-preview.webp', 'video/mp4', null), /constraint/i);
+  assert.throws(() => insert('bad.png', null, 'image/png', 10), /constraint/i);
+  assert.throws(() => insert('bad.avi', null, 'video/avi', null), /constraint/i);
+});

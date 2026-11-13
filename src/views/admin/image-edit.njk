@@ -5,8 +5,13 @@
 {% block admin %}
   <h1>Edit image</h1>
 
+  {% if image.isVideo %}
+    <video class="card-thumb" src="/media/{{ image.id }}" aria-label="{{ image.altText }}" controls muted loop playsinline preload="metadata" style="max-width:300px"></video>
+    <p class="hint">Video, stored as uploaded</p>
+  {% else %}
   <img class="card-thumb" src="/media/{{ image.id }}" alt="{{ image.altText }}" style="max-width:300px">
   <p class="hint">{{ image.width }} × {{ image.height }} original</p>
+  {% endif %}
 
   <form method="post" action="/admin/images/{{ image.id }}" class="filters">
     <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">

@@ -15,7 +15,8 @@ function options(db) {
 function imageDetail(db, id) {
   const image = db.prepare(`
     SELECT id, alt_text AS altText, short_description AS shortDescription,
-           artist_id AS artistId, is_nsfw AS isNsfw, width, height
+           artist_id AS artistId, is_nsfw AS isNsfw, width, height,
+           (mime_type LIKE 'video/%') AS isVideo
     FROM image WHERE id = ?
   `).get(id);
 

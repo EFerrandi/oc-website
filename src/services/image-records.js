@@ -148,8 +148,9 @@ export function updateImage(db, id, body) {
     // Any character whose avatar was this image keeps a valid avatar.
     db.prepare(`
       UPDATE character SET avatar_image_id = (
-        SELECT image_id FROM character_image
-        WHERE character_id = character.id ORDER BY position, rowid LIMIT 1
+        SELECT ci.image_id FROM character_image ci JOIN image i ON i.id = ci.image_id
+        WHERE ci.character_id = character.id AND i.mime_type NOT LIKE 'video/%'
+        ORDER BY ci.position, ci.rowid LIMIT 1
       )
       WHERE avatar_image_id IS NULL
     `).run();
@@ -196,8 +197,9 @@ export async function deleteImage(db, id, { confirm, config }) {
     db.prepare('DELETE FROM image WHERE id = ?').run(id);
     db.prepare(`
       UPDATE character SET avatar_image_id = (
-        SELECT image_id FROM character_image
-        WHERE character_id = character.id ORDER BY position, rowid LIMIT 1
+        SELECT ci.image_id FROM character_image ci JOIN image i ON i.id = ci.image_id
+        WHERE ci.character_id = character.id AND i.mime_type NOT LIKE 'video/%'
+        ORDER BY ci.position, ci.rowid LIMIT 1
       )
       WHERE avatar_image_id IS NULL
     `).run();

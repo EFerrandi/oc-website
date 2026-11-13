@@ -5,6 +5,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 
 import { ValidationError } from '../middleware/errors.js';
+import { VIDEO_EXTENSIONS, isVideoMime, sniffVideoType } from '../lib/media-type.js';
 
 const ALLOWED_MIME = new Map([
   ['image/png', 'png'],
@@ -25,10 +26,30 @@ export function isAllowedMime(mime) {
  * anchor. The preview is a genuinely smaller FILE, not a CSS-scaled original,
  * so page weight does not depend on the original's size.
  */
+async function storeVideo({ buffer, config }) {
+  const mimeType = sniffVideoType(buffer);
+  if (!mimeType) {
+    throw new ValidationError('Unreadable video', {
+      file: 'That file could not be read as an MP4 or WebM video. It may be corrupt.',
+    });
+  }
+
+  await fs.mkdir(config.uploadDir, { recursive: true });
+  const fileName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${VIDEO_EXTENSIONS.get(mimeType)}`;
+  await fs.writeFile(path.join(config.uploadDir, fileName), buffer);
+
+  return {
+    fileName, previewFileName: null, mimeType, byteSize: buffer.length, width: null, height: null,
+  };
+}
+
 export async function storeImage({ buffer, mimeType, config }) {
+  // Video is identified by its bytes: the client-declared type is not trusted.
+  if (sniffVideoType(buffer) || isVideoMime(mimeType)) return storeVideo({ buffer, config });
+
   if (!isAllowedMime(mimeType)) {
     throw new ValidationError('Unsupported image type', {
-      file: `Upload a PNG, JPEG, WebP or GIF. Received ${mimeType || 'an unknown type'}.`,
+      file: `Upload a PNG, JPEG, WebP, GIF, MP4 or WebM file. Received ${mimeType || 'an unknown type'}.`,
     });
   }
 
@@ -65,7 +86,7 @@ export async function storeImage({ buffer, mimeType, config }) {
       fit: 'inside',
       withoutEnlargement: true,
     })
-    .webp({ quality: 80 })
+    .webp({ quality: 80, loop: 0 })
     .toFile(path.join(config.previewDir, previewFileName));
 
   return {
@@ -82,6 +103,6 @@ export async function storeImage({ buffer, mimeType, config }) {
 export async function deleteImageFiles({ fileName, previewFileName }, config) {
   await Promise.allSettled([
     fs.unlink(path.join(config.uploadDir, path.basename(fileName))),
-    fs.unlink(path.join(config.previewDir, path.basename(previewFileName))),
+    previewFileName ? fs.unlink(path.join(config.previewDir, path.basename(previewFileName))) : null,
   ]);
 }
