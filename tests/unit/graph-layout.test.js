@@ -47,6 +47,33 @@ test('layoutGraph is deterministic: identical input yields identical output', ()
   }
 });
 
+test('layoutGraph keeps wrapped labels clear of the avatars on a two-node map', () => {
+  const longLabel = 'childhood friends who grew up together';
+  const result = layoutGraph(nodes('Aria', 'Brann'), [{ id: 1, fromId: 1, toId: 2, label: longLabel }]);
+  const [a, b] = result.nodes;
+  const edge = result.edges[0];
+  const widest = Math.max(...edge.labelLines.map((l) => l.length)) * 7.5;
+  const rimGap = Math.hypot(a.x - b.x, a.y - b.y) - 2 * a.r;
+  assert.ok(rimGap >= widest, `rim gap ${rimGap} must fit label width ${widest}`);
+});
+
+test('layoutGraph reproduces the gallery cover + object-position + zoom geometry', () => {
+  const wide = [{ ...nodes('Aria')[0], imageWidth: 200, imageHeight: 100, cropX: 50, cropY: 50, cropZoom: 1 }];
+  const [n] = layoutGraph(wide, []).nodes;
+  assert.equal(n.imageWidth, 136);
+  assert.equal(n.imageHeight, 68);
+  assert.equal(n.imageX, -34 + (68 - 136) * 0.5);
+  assert.equal(n.imageY, -34);
+});
+
+test('layoutGraph zooms about the crop focus point like transform-origin', () => {
+  const zoomed = [{ ...nodes('Aria')[0], imageWidth: 100, imageHeight: 100, cropX: 0, cropY: 100, cropZoom: 2 }];
+  const [n] = layoutGraph(zoomed, []).nodes;
+  assert.equal(n.imageWidth, 136);
+  assert.equal(n.imageX, -34, 'left focus keeps the left edge fixed');
+  assert.equal(n.imageY, -34 + 68 - 136, 'bottom focus keeps the bottom edge fixed');
+});
+
 test('layoutGraph does not mutate its arguments', () => {
   const n = nodes('Aria', 'Brann');
   const e = edges([1, 2]);

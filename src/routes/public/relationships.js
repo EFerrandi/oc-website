@@ -36,6 +36,11 @@ export function buildMapModel(rows) {
       avatarUrl: character.avatar ? `/media/${character.avatar.id}` : PLACEHOLDER_AVATAR,
       avatarAlt: character.avatar?.altText || character.name,
       hasAvatar: Boolean(character.avatar),
+      imageWidth: character.avatar?.width ?? 0,
+      imageHeight: character.avatar?.height ?? 0,
+      cropX: character.crop?.x ?? 50,
+      cropY: character.crop?.y ?? 50,
+      cropZoom: character.crop?.zoom ?? 1,
     });
   };
 
@@ -50,6 +55,7 @@ export function buildMapModel(rows) {
       fromName: row.from.name,
       toName: row.to.name,
       label: row.label,
+      isOneSided: Boolean(row.isOneSided),
     };
   });
 

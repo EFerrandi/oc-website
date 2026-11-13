@@ -18,8 +18,10 @@ function asBool(value) {
 function validate(db, body, excludeId = null) {
   const fieldErrors = {};
 
-  const fromId = Number(body.from_character_id);
-  const toId = Number(body.to_character_id);
+  const isOneSided = body.is_one_sided === '1' || body.is_one_sided === 1 || body.is_one_sided === true;
+  const swap = asBool(body.swap_direction);
+  const fromId = Number(swap ? body.to_character_id : body.from_character_id);
+  const toId = Number(swap ? body.from_character_id : body.to_character_id);
   const label = normaliseName(body.label);
 
   if (!db.prepare('SELECT 1 FROM character WHERE id = ?').get(fromId)) {
@@ -40,15 +42,22 @@ function validate(db, body, excludeId = null) {
     const low = Math.min(fromId, toId);
     const high = Math.max(fromId, toId);
 
+    // Two-sided relationships ignore direction. Two one-sided ones only clash
+    // when they point the same way. A one-sided and a two-sided one with the
+    // same label always clash; the database index cannot see across the kinds.
     const duplicate = db.prepare(`
-      SELECT id, label FROM relationship
+      SELECT id, label, is_one_sided AS isOneSided,
+             from_character_id AS fromId
+      FROM relationship
       WHERE MIN(from_character_id, to_character_id) = ?
         AND MAX(from_character_id, to_character_id) = ?
-    `).all(low, high).find((row) => nameKey(row.label) === nameKey(label) && row.id !== excludeId);
+    `).all(low, high).find((row) => nameKey(row.label) === nameKey(label)
+      && row.id !== excludeId
+      && (!isOneSided || row.isOneSided === 0 || row.fromId === fromId));
 
     if (duplicate) {
-      fieldErrors.label = 'These two characters already have a relationship with that label, '
-        + 'in one direction or the other.';
+      fieldErrors.label = 'These two characters already have a relationship with that label'
+        + (isOneSided ? ' in that direction.' : ', in one direction or the other.');
     }
   }
 
@@ -56,7 +65,7 @@ function validate(db, body, excludeId = null) {
     throw new ValidationError('The relationship could not be saved', fieldErrors);
   }
 
-  return { fromId, toId, label, isNsfw: asBool(body.is_nsfw) };
+  return { fromId, toId, label, isNsfw: asBool(body.is_nsfw), isOneSided };
 }
 
 export function createRelationship(db, body) {
@@ -64,9 +73,12 @@ export function createRelationship(db, body) {
   const at = new Date().toISOString();
 
   return Number(db.prepare(`
-    INSERT INTO relationship (from_character_id, to_character_id, label, is_nsfw, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(input.fromId, input.toId, input.label, input.isNsfw ? 1 : 0, at, at).lastInsertRowid);
+    INSERT INTO relationship
+      (from_character_id, to_character_id, label, is_nsfw, is_one_sided, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    input.fromId, input.toId, input.label, input.isNsfw ? 1 : 0, input.isOneSided ? 1 : 0, at, at,
+  ).lastInsertRowid);
 }
 
 export function updateRelationship(db, id, body) {
@@ -78,9 +90,12 @@ export function updateRelationship(db, id, body) {
 
   db.prepare(`
     UPDATE relationship
-    SET from_character_id = ?, to_character_id = ?, label = ?, is_nsfw = ?, updated_at = ?
+    SET from_character_id = ?, to_character_id = ?, label = ?, is_nsfw = ?, is_one_sided = ?, updated_at = ?
     WHERE id = ?
-  `).run(input.fromId, input.toId, input.label, input.isNsfw ? 1 : 0, new Date().toISOString(), id);
+  `).run(
+    input.fromId, input.toId, input.label, input.isNsfw ? 1 : 0, input.isOneSided ? 1 : 0,
+    new Date().toISOString(), id,
+  );
 
   return id;
 }

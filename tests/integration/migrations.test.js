@@ -121,6 +121,48 @@ test('migration is recorded and does not change data when run again', (t) => {
   assert.ok(first > 0);
 });
 
+test('relationship sidedness migration keeps rows two-sided and makes uniqueness direction-aware', (t) => {
+  const { db, cleanup } = createLegacyDatabase();
+  t.after(cleanup);
+  const ids = seedLegacy(db);
+  const at = '2026-01-01T00:00:00.000Z';
+  const other = db.prepare(`
+    INSERT INTO character
+      (name, slug, gender_id, short_description, terms_of_use, can_regift,
+       can_retrade, can_resell, designer_id, created_at, updated_at)
+    VALUES ('Other', 'other', 1, 'Description', 'Terms', 0, 0, 0, ?, ?, ?)
+  `).run(ids.designer, at, at).lastInsertRowid;
+  const rel = (from, to, label, oneSided = null) => {
+    const columns = oneSided === null ? '' : ', is_one_sided';
+    const marks = oneSided === null ? '' : ', ?';
+    const params = [from, to, label, at, at];
+    if (oneSided !== null) params.push(oneSided);
+    return db.prepare(`
+      INSERT INTO relationship (from_character_id, to_character_id, label, is_nsfw, created_at, updated_at${columns})
+      VALUES (?, ?, ?, 0, ?, ?${marks})
+    `).run(...params);
+  };
+  const a = ids.character;
+  const legacyId = rel(a, other, 'friends').lastInsertRowid;
+
+  migrate(db);
+
+  const column = db.prepare('PRAGMA table_info(relationship)').all().find((c) => c.name === 'is_one_sided');
+  assert.ok(column, 'is_one_sided column exists');
+  assert.equal(column.notnull, 1);
+  assert.equal(db.prepare('SELECT is_one_sided s FROM relationship WHERE id = ?').get(legacyId).s, 0,
+    'existing relationships stay two-sided');
+
+  assert.throws(() => rel(a, other, 'Friends'), /constraint/i, 'same two-sided label, same direction');
+  assert.throws(() => rel(other, a, 'FRIENDS'), /constraint/i, 'two-sided is direction-independent');
+  assert.throws(() => rel(a, other, 'x', 2), /constraint/i, 'is_one_sided is 0 or 1');
+
+  rel(a, other, 'crush on', 1);
+  rel(other, a, 'crush on', 1);
+  assert.throws(() => rel(a, other, 'CRUSH ON', 1), /constraint/i, 'same direction and label');
+  assert.equal(db.prepare('PRAGMA foreign_key_check').all().length, 0);
+});
+
 test('video migration keeps images and avatar links and enforces the video invariant', (t) => {
   const { db, cleanup } = createLegacyDatabase();
   t.after(cleanup);

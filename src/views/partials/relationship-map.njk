@@ -30,18 +30,26 @@
       <clipPath id="{{ mapId }}-clip">
         <circle cx="0" cy="0" r="{{ layout.nodes[0].r if layout.nodes.length else 0 }}"></circle>
       </clipPath>
+      {# Arrowhead for one-sided relationships; `orient=auto` turns it to
+         follow the end of whichever curve it is attached to. #}
+      <marker id="{{ mapId }}-arrow" class="map-arrow"
+              viewBox="0 0 10 10" refX="9" refY="5"
+              markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14"
+              orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z"></path>
+      </marker>
     </defs>
 
     <g class="map-edges">
       {% for edge in layout.edges %}
-        <g class="map-edge" data-edge="{{ edge.id }}" data-from="{{ edge.fromId }}" data-to="{{ edge.toId }}">
-          <path class="map-edge-line"
-                d="M {{ edge.fromX | round(2) }} {{ edge.fromY | round(2) }}{% if edge.curveOffset %} Q {{ edge.controlX | round(2) }} {{ edge.controlY | round(2) }}{% else %} L{% endif %} {{ edge.toX | round(2) }} {{ edge.toY | round(2) }}"></path>
+        <g class="map-edge" data-edge="{{ edge.id }}" data-from="{{ edge.fromId }}" data-to="{{ edge.toId }}"{% if edge.isOneSided %} data-one-sided="1"{% endif %}>
+          <path class="map-edge-line"{% if edge.isOneSided %} marker-end="url(#{{ mapId }}-arrow)"{% endif %}
+                d="M {{ edge.fromX | round(2) }} {{ edge.fromY | round(2) }}{% if edge.curveOffset %} Q {{ edge.controlX | round(2) }} {{ edge.controlY | round(2) }}{% else %} L{% endif %} {{ edge.pathEndX | round(2) }} {{ edge.pathEndY | round(2) }}"></path>
           <text class="map-edge-label"
                 x="{{ edge.labelX | round(2) }}"
                 y="{{ edge.labelY | round(2) }}"
                 text-anchor="middle"
-                dominant-baseline="middle">{{ edge.label | truncate(24, true, "…") }}<title>{{ edge.label }}</title></text>
+                dominant-baseline="middle">{% for line in edge.labelLines %}<tspan x="{{ edge.labelX | round(2) }}" dy="{{ (-(edge.labelLines.length - 1) * 8) if loop.first else 16 }}">{{ line }}</tspan>{% endfor %}</text>
         </g>
       {% endfor %}
     </g>
@@ -50,20 +58,22 @@
       {% for node in layout.nodes %}
         <a class="map-node"
            data-node="{{ node.id }}"
+           data-crop-zoom="{{ node.cropZoom }}"
            href="/characters/{{ node.slug }}"
+           draggable="false"
            transform="translate({{ node.x | round(2) }},{{ node.y | round(2) }})"
            aria-label="{{ node.name }}">
           <image class="map-node-avatar"
                  href="{{ node.avatarUrl }}"
-                 x="{{ -node.r }}" y="{{ -node.r }}"
-                 width="{{ node.r * 2 }}" height="{{ node.r * 2 }}"
-                 preserveAspectRatio="xMidYMid slice"
+                 x="{{ node.imageX | round(2) }}" y="{{ node.imageY | round(2) }}"
+                 width="{{ node.imageWidth | round(2) }}" height="{{ node.imageHeight | round(2) }}"
+                 preserveAspectRatio="none"
                  clip-path="url(#{{ mapId }}-clip)"
                  aria-hidden="true"></image>
           <circle class="map-node-ring" cx="0" cy="0" r="{{ node.r }}"></circle>
           <text class="map-node-name"
                 x="0" y="{{ node.r + 16 }}"
-                text-anchor="middle">{{ node.name }}</text>
+                text-anchor="middle">{% for line in node.nameLines %}<tspan x="0" dy="{{ 0 if loop.first else 16 }}">{{ line }}</tspan>{% endfor %}</text>
         </a>
       {% endfor %}
     </g>
@@ -73,7 +83,7 @@
      remove this from the accessibility tree along with the screen. #}
   <ul class="visually-hidden map-text-equivalent">
     {% for edge in layout.edges %}
-      <li>{{ edge.fromName }} — {{ edge.label }} — {{ edge.toName }}</li>
+      <li>{% if edge.isOneSided %}{{ edge.fromName }} → {{ edge.label }} → {{ edge.toName }}{% else %}{{ edge.fromName }} — {{ edge.label }} — {{ edge.toName }}{% endif %}</li>
     {% endfor %}
   </ul>
 {% endmacro %}

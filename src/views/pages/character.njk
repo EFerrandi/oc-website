@@ -88,10 +88,17 @@
         <ul>
           {% for r in character.relationships %}
             <li>
-              {% if r.from.id == character.id %}
-                {{ r.label }} → <a href="/characters/{{ r.to.slug }}">{{ r.to.name }}</a>
+              {% if r.isOneSided %}
+                {% if r.from.id == character.id %}
+                  {{ r.label }} → <a href="/characters/{{ r.to.slug }}">{{ r.to.name }}</a>
+                {% else %}
+                  <a href="/characters/{{ r.from.slug }}">{{ r.from.name }}</a> → {{ r.label }}
+                {% endif %}
+                <span class="relationship-direction">(one-sided)</span>
               {% else %}
-                <a href="/characters/{{ r.from.slug }}">{{ r.from.name }}</a> → {{ r.label }}
+                {% set other = r.to if r.from.id == character.id else r.from %}
+                {{ r.label }} ↔ <a href="/characters/{{ other.slug }}">{{ other.name }}</a>
+                <span class="relationship-direction">(two-sided)</span>
               {% endif %}
               {% if r.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
             </li>

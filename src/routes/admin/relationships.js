@@ -14,7 +14,7 @@ function options(db) {
 
 function listAll(db) {
   return db.prepare(`
-    SELECT r.id, r.label, r.is_nsfw AS isNsfw,
+    SELECT r.id, r.label, r.is_nsfw AS isNsfw, r.is_one_sided AS isOneSided,
            f.name AS fromName, t.name AS toName,
            r.from_character_id AS fromId, r.to_character_id AS toId
     FROM relationship r

@@ -22,8 +22,58 @@ const NODE_GAP = 26;
 /** Margin around the whole drawing, leaving room for names and labels. */
 const PADDING = 56;
 
-/** Extra room below a node for its name text. */
+/** Extra room below a node for its name text, per line of name. */
 const NAME_SPACE = 22;
+
+/** Vertical distance between wrapped lines of text. */
+export const LINE_HEIGHT = 16;
+
+/** Characters per line before a label or a name wraps. */
+const LABEL_MAX_CHARS = 20;
+const NAME_MAX_CHARS = 16;
+
+/** Approximate width of one character at the map's 13px font. */
+const CHAR_WIDTH = 7.5;
+
+/** Gap between the avatar rim and an arrowhead tip. */
+const ARROW_GAP = 3;
+
+/**
+ * Split text into lines of at most `max` characters. Words are kept whole when
+ * they fit; a word longer than a line is broken so nothing is ever cut off.
+ */
+export function wrapText(text, max) {
+  const lines = [];
+  let current = '';
+
+  for (const word of String(text ?? '').split(/\s+/).filter(Boolean)) {
+    let rest = word;
+
+    while (rest.length > max) {
+      if (current) {
+        lines.push(current);
+        current = '';
+      }
+      lines.push(rest.slice(0, max));
+      rest = rest.slice(max);
+    }
+
+    if (!current) current = rest;
+    else if (current.length + 1 + rest.length <= max) current += ` ${rest}`;
+    else {
+      lines.push(current);
+      current = rest;
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines.length ? lines : [''];
+}
+
+/** Room a name needs below its avatar, given how many lines it wraps to. */
+function nameSpace(lines) {
+  return NAME_SPACE - LINE_HEIGHT + lines * LINE_HEIGHT;
+}
 
 /** Perpendicular displacement applied to each additional edge of a pair. */
 const CURVE_STEP = 26;
@@ -38,10 +88,24 @@ const COMPONENT_GAP = 48;
  * Ring radius for a component: large enough that `count` avatars fit around
  * the circumference without touching.
  */
-function ringRadius(count) {
+function ringRadius(count, slot = 2 * NODE_RADIUS + NODE_GAP, minRadius = MIN_RADIUS) {
   if (count <= 1) return 0;
-  const circumference = count * (2 * NODE_RADIUS + NODE_GAP);
-  return Math.max(MIN_RADIUS, circumference / (2 * Math.PI));
+  const circumference = count * Math.max(slot, 2 * NODE_RADIUS + NODE_GAP);
+  return Math.max(minRadius, circumference / (2 * Math.PI));
+}
+
+/**
+ * Smallest ring radius that leaves room for the widest edge label between two
+ * avatar rims, so a wrapped label never lands on an avatar (FR-007).
+ */
+function labelClearance(componentEdges) {
+  if (componentEdges.length === 0) return MIN_RADIUS;
+
+  const widest = Math.max(
+    ...componentEdges.map((e) => Math.max(...wrapText(e.label, LABEL_MAX_CHARS).map((l) => l.length))),
+  ) * CHAR_WIDTH;
+
+  return Math.max(MIN_RADIUS, (2 * NODE_RADIUS + widest + 16) / 2);
 }
 
 /**
@@ -417,14 +481,17 @@ export function layoutGraph(nodes, edges) {
     const membership = new Set(members);
     const componentEdges = drawable.filter((e) => membership.has(e.fromId));
     const ordering = chooseOrdering(members, componentEdges, adjacency, byId);
-    const radius = ringRadius(ordering.length);
+    const lineCounts = members.map((id) => wrapText(byId.get(id).name, NAME_MAX_CHARS));
+    const widestName = Math.max(...lineCounts.map((lines) => Math.max(...lines.map((l) => l.length))));
+    const tallestName = Math.max(...lineCounts.map((lines) => lines.length));
+    const radius = ringRadius(ordering.length, widestName * CHAR_WIDTH + 8, labelClearance(componentEdges));
 
     return {
       ordering,
       radius,
       // Cell size includes the avatar radius and the room the name needs.
       cellWidth: 2 * (radius + NODE_RADIUS) + COMPONENT_GAP,
-      cellHeight: 2 * (radius + NODE_RADIUS) + NAME_SPACE + COMPONENT_GAP,
+      cellHeight: 2 * (radius + NODE_RADIUS) + nameSpace(tallestName) + COMPONENT_GAP,
       crossings: countCrossings(componentEdges, rankOf(ordering)),
     };
   });
@@ -462,12 +529,34 @@ export function layoutGraph(nodes, edges) {
 
   const crossings = laidOut.reduce((total, component) => total + component.crossings, 0);
 
-  const placedNodes = nodes.map((node) => ({
-    ...node,
-    x: positions.get(node.id).x,
-    y: positions.get(node.id).y,
-    r: NODE_RADIUS,
-  }));
+  const placedNodes = nodes.map((node) => {
+    const zoom = node.cropZoom ?? 1;
+    const cropX = (node.cropX ?? 50) / 100;
+    const cropY = (node.cropY ?? 50) / 100;
+    const box = 2 * NODE_RADIUS;
+
+    // Same geometry as the gallery's `object-fit: cover; object-position`
+    // followed by `scale(zoom)` about the same focus point.
+    const ratio = node.imageWidth > 0 && node.imageHeight > 0 ? node.imageWidth / node.imageHeight : 1;
+    const coverW = ratio >= 1 ? box * ratio : box;
+    const coverH = ratio >= 1 ? box : box / ratio;
+    const left = (box - coverW) * cropX;
+    const top = (box - coverH) * cropY;
+    const originX = box * cropX;
+    const originY = box * cropY;
+
+    return {
+      ...node,
+      x: positions.get(node.id).x,
+      y: positions.get(node.id).y,
+      r: NODE_RADIUS,
+      nameLines: wrapText(node.name, NAME_MAX_CHARS),
+      imageWidth: coverW * zoom,
+      imageHeight: coverH * zoom,
+      imageX: -NODE_RADIUS + originX + (left - originX) * zoom,
+      imageY: -NODE_RADIUS + originY + (top - originY) * zoom,
+    };
+  });
 
   const placedEdges = assignCurveOffsets(drawable).map((edge) => {
     const from = positions.get(edge.fromId);
@@ -480,12 +569,30 @@ export function layoutGraph(nodes, edges) {
       ? edgeGeometry(from, to, edge.curveOffset)
       : edgeGeometry(to, from, edge.curveOffset);
 
+    // A one-sided edge ends at the avatar rim so its arrowhead is not painted
+    // over by the avatar; the direction is the curve's tangent at the end.
+    let pathEndX = to.x;
+    let pathEndY = to.y;
+
+    if (edge.isOneSided) {
+      const dx = to.x - geometry.controlX;
+      const dy = to.y - geometry.controlY;
+      const length = Math.hypot(dx, dy);
+      if (length > NODE_RADIUS + ARROW_GAP) {
+        pathEndX = to.x - (dx / length) * (NODE_RADIUS + ARROW_GAP);
+        pathEndY = to.y - (dy / length) * (NODE_RADIUS + ARROW_GAP);
+      }
+    }
+
     return {
       ...edge,
+      labelLines: wrapText(edge.label, LABEL_MAX_CHARS),
       fromX: from.x,
       fromY: from.y,
       toX: to.x,
       toY: to.y,
+      pathEndX,
+      pathEndY,
       ...geometry,
     };
   });
@@ -508,18 +615,22 @@ function fitToBox(placedNodes, placedEdges) {
   let maxY = -Infinity;
 
   for (const node of placedNodes) {
-    minX = Math.min(minX, node.x - node.r);
-    maxX = Math.max(maxX, node.x + node.r);
+    const halfName = Math.max(...node.nameLines.map((l) => l.length)) * CHAR_WIDTH / 2;
+    minX = Math.min(minX, node.x - node.r, node.x - halfName);
+    maxX = Math.max(maxX, node.x + node.r, node.x + halfName);
     minY = Math.min(minY, node.y - node.r);
-    // The name is drawn below the avatar, so it extends the box downward.
-    maxY = Math.max(maxY, node.y + node.r + NAME_SPACE);
+    // Names are drawn below the avatar, so they extend the box downward.
+    maxY = Math.max(maxY, node.y + node.r + nameSpace(node.nameLines.length));
   }
 
   for (const edge of placedEdges) {
-    minX = Math.min(minX, edge.labelX, edge.controlX);
-    maxX = Math.max(maxX, edge.labelX, edge.controlX);
-    minY = Math.min(minY, edge.labelY, edge.controlY);
-    maxY = Math.max(maxY, edge.labelY, edge.controlY);
+    const halfWidth = Math.max(...edge.labelLines.map((l) => l.length)) * CHAR_WIDTH / 2;
+    const halfHeight = (edge.labelLines.length * LINE_HEIGHT) / 2;
+
+    minX = Math.min(minX, edge.labelX - halfWidth, edge.controlX);
+    maxX = Math.max(maxX, edge.labelX + halfWidth, edge.controlX);
+    minY = Math.min(minY, edge.labelY - halfHeight, edge.controlY);
+    maxY = Math.max(maxY, edge.labelY + halfHeight, edge.controlY);
   }
 
   const shiftX = PADDING - minX;
@@ -531,10 +642,12 @@ function fitToBox(placedNodes, placedEdges) {
       ...edge,
       fromX: edge.fromX + shiftX,
       toX: edge.toX + shiftX,
+      pathEndX: edge.pathEndX + shiftX,
       controlX: edge.controlX + shiftX,
       labelX: edge.labelX + shiftX,
       fromY: edge.fromY + shiftY,
       toY: edge.toY + shiftY,
+      pathEndY: edge.pathEndY + shiftY,
       controlY: edge.controlY + shiftY,
       labelY: edge.labelY + shiftY,
     })),

@@ -134,6 +134,13 @@ every character they are related to, with the relationship written at the
 middle of the line. There are two maps: one for SFW relationships and one for
 NSFW relationships, which is empty until you opt in.
 
+A relationship is **two-sided** (a plain line, direction does not matter) or
+**one-sided** (an arrow from the character who feels it toward the other). The
+admin chooses this per relationship and can swap the direction when editing.
+Labels and names are always shown in full: long text wraps onto several lines
+and the map grows taller. Each avatar uses the character's designated avatar
+with its saved crop.
+
 The layout is computed **on the server**, by a pure function in
 `src/lib/graph-layout.js`. That is a deliberate constraint, not an incidental
 one:
@@ -162,6 +169,7 @@ even though the image itself would 404.
 | Input | Effect |
 |---|---|
 | Drag an avatar (mouse, pen or touch) | Moves it; its lines and labels follow |
+| Press and drag empty space (mouse) | Pans the view; on touch, empty space still scrolls the page |
 | <kbd>Tab</kbd> | Focuses the next avatar |
 | Arrow keys | Moves the focused avatar a small step |
 | <kbd>Shift</kbd> + arrow keys | Moves it a larger step |

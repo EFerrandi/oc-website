@@ -1,9 +1,11 @@
 import { resolveAvatarForCharacterId } from './avatars.js';
 
 const SELECT_RELATIONSHIP = `
-  SELECT r.id, r.label, r.is_nsfw AS isNsfw,
+  SELECT r.id, r.label, r.is_nsfw AS isNsfw, r.is_one_sided AS isOneSided,
          f.id AS fromId, f.name AS fromName, f.slug AS fromSlug,
-         t.id AS toId,   t.name AS toName,   t.slug AS toSlug
+         f.avatar_crop_x AS fromCropX, f.avatar_crop_y AS fromCropY, f.avatar_crop_zoom AS fromCropZoom,
+         t.id AS toId,   t.name AS toName,   t.slug AS toSlug,
+         t.avatar_crop_x AS toCropX, t.avatar_crop_y AS toCropY, t.avatar_crop_zoom AS toCropZoom
   FROM relationship r
   JOIN character f ON f.id = r.from_character_id
   JOIN character t ON t.id = r.to_character_id
@@ -14,8 +16,15 @@ function shape(row) {
     id: row.id,
     label: row.label,
     isNsfw: row.isNsfw === 1,
-    from: { id: row.fromId, name: row.fromName, slug: row.fromSlug },
-    to: { id: row.toId, name: row.toName, slug: row.toSlug },
+    isOneSided: row.isOneSided === 1,
+    from: {
+      id: row.fromId, name: row.fromName, slug: row.fromSlug,
+      crop: { x: row.fromCropX, y: row.fromCropY, zoom: row.fromCropZoom },
+    },
+    to: {
+      id: row.toId, name: row.toName, slug: row.toSlug,
+      crop: { x: row.toCropX, y: row.toCropY, zoom: row.toCropZoom },
+    },
   };
 }
 

@@ -29,6 +29,18 @@
       </select>
     </div>
 
+    <fieldset class="field">
+      <legend>Kind</legend>
+      <label class="inline">
+        <input type="radio" name="is_one_sided" value="0"{% if values.is_one_sided != '1' %} checked{% endif %}>
+        Two-sided — shared, direction does not matter
+      </label>
+      <label class="inline">
+        <input type="radio" name="is_one_sided" value="1"{% if values.is_one_sided == '1' %} checked{% endif %}>
+        One-sided — felt by “From” toward “To”
+      </label>
+    </fieldset>
+
     <label class="inline">
       <input type="checkbox" name="is_nsfw" value="1">
       This relationship is NSFW
@@ -38,16 +50,53 @@
   </form>
 
   {% if relationships.length %}
-    <ul>
+    <ul class="admin-relationships">
       {% for r in relationships %}
         <li>
-          {{ r.fromName }} — <strong>{{ r.label }}</strong> — {{ r.toName }}
+          {{ r.fromName }} {{ "→" if r.isOneSided else "—" }} <strong>{{ r.label }}</strong> {{ "→" if r.isOneSided else "—" }} {{ r.toName }}
+          <span class="badge">{{ "One-sided" if r.isOneSided else "Two-sided" }}</span>
           {% if r.isNsfw %}<span class="badge-nsfw">NSFW</span>{% endif %}
           <form method="post" action="/admin/relationships/{{ r.id }}/delete" class="inline-form">
             <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
             <input type="hidden" name="confirm" value="delete">
             <button type="submit">Delete</button>
           </form>
+          <details>
+            <summary>Edit</summary>
+            <form method="post" action="/admin/relationships/{{ r.id }}" class="filters">
+              <input type="hidden" name="{{ csrfField }}" value="{{ csrfToken }}">
+              <div class="field">
+                <label for="from-{{ r.id }}">From</label>
+                <select id="from-{{ r.id }}" name="from_character_id" required>
+                  {% for c in options.characters %}<option value="{{ c.id }}"{% if c.id == r.fromId %} selected{% endif %}>{{ c.name }}</option>{% endfor %}
+                </select>
+              </div>
+              <div class="field">
+                <label for="label-{{ r.id }}">Relationship</label>
+                <input type="text" id="label-{{ r.id }}" name="label" value="{{ r.label }}" required>
+              </div>
+              <div class="field">
+                <label for="to-{{ r.id }}">To</label>
+                <select id="to-{{ r.id }}" name="to_character_id" required>
+                  {% for c in options.characters %}<option value="{{ c.id }}"{% if c.id == r.toId %} selected{% endif %}>{{ c.name }}</option>{% endfor %}
+                </select>
+              </div>
+              <fieldset class="field">
+                <legend>Kind</legend>
+                <label class="inline"><input type="radio" name="is_one_sided" value="0"{% if not r.isOneSided %} checked{% endif %}> Two-sided</label>
+                <label class="inline"><input type="radio" name="is_one_sided" value="1"{% if r.isOneSided %} checked{% endif %}> One-sided</label>
+              </fieldset>
+              <label class="inline">
+                <input type="checkbox" name="swap_direction" value="1">
+                Swap direction (From ↔ To)
+              </label>
+              <label class="inline">
+                <input type="checkbox" name="is_nsfw" value="1"{% if r.isNsfw %} checked{% endif %}>
+                This relationship is NSFW
+              </label>
+              <p><button type="submit">Save changes</button></p>
+            </form>
+          </details>
         </li>
       {% endfor %}
     </ul>

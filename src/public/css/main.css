@@ -383,13 +383,27 @@ textarea { min-height: 8rem; resize: vertical; }
   display: block;
   width: 100%;
   height: auto;
-  touch-action: none;
+  /* Vertical page scroll stays available on touch; only a character drags
+     there. Mouse panning of empty space is handled by the script. */
+  touch-action: pan-y;
+  cursor: grab;
 }
+
+.relationship-map.is-panning { cursor: grabbing; }
+
+.map-node { touch-action: none; user-select: none; -webkit-user-drag: none; }
+
+.map-arrow path { fill: var(--brand-medium); }
 
 .map-edge-line {
   fill: none;
   stroke: var(--border);
   stroke-width: 2;
+}
+
+.relationship-direction {
+  color: var(--muted);
+  font-size: 0.85em;
 }
 
 .map-edge-label {

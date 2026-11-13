@@ -25,7 +25,7 @@ export function resolveEffectiveAvatar(db, character, { showNsfw }) {
 
   if (character.avatarImageId) {
     const designated = db.prepare(`
-      SELECT id, alt_text AS altText, is_nsfw AS isNsfw
+      SELECT id, alt_text AS altText, is_nsfw AS isNsfw, width, height
       FROM image
       WHERE id = :id AND (:showNsfw = 1 OR is_nsfw = 0) AND mime_type NOT LIKE 'video/%'
     `).get({ id: character.avatarImageId, ...rating });
@@ -34,7 +34,7 @@ export function resolveEffectiveAvatar(db, character, { showNsfw }) {
   }
 
   return db.prepare(`
-    SELECT i.id, i.alt_text AS altText, i.is_nsfw AS isNsfw
+    SELECT i.id, i.alt_text AS altText, i.is_nsfw AS isNsfw, i.width, i.height
     FROM image i
     JOIN character_image ci ON ci.image_id = i.id
     WHERE ci.character_id = :characterId AND (:showNsfw = 1 OR i.is_nsfw = 0)

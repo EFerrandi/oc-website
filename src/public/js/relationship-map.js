@@ -29,6 +29,9 @@ const BIG_STEP = 48;
  */
 const DRAG_THRESHOLD = 4;
 
+/** Avatar radius plus the gap the server leaves before an arrowhead. */
+const ARROW_INSET = 37;
+
 /**
  * Keep a point inside the drawing.
  *
@@ -132,17 +135,33 @@ function redrawEdges(map, nodeId) {
       };
     }
 
+    // A one-sided edge stops at the avatar rim so its arrowhead stays visible.
+    let end = to;
+    if (edge.oneSided) {
+      const dx = to.x - control.x;
+      const dy = to.y - control.y;
+      const length = Math.hypot(dx, dy);
+      if (length > ARROW_INSET) {
+        end = { x: to.x - (dx / length) * ARROW_INSET, y: to.y - (dy / length) * ARROW_INSET };
+      }
+    }
+
     edge.path.setAttribute(
       'd',
       edge.curveOffset === 0
-        ? `M ${from.x} ${from.y} L ${to.x} ${to.y}`
-        : `M ${from.x} ${from.y} Q ${control.x} ${control.y} ${to.x} ${to.y}`,
+        ? `M ${from.x} ${from.y} L ${end.x} ${end.y}`
+        : `M ${from.x} ${from.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`,
     );
 
     if (edge.label) {
       const anchor = labelAnchor(from, control, to);
       edge.label.setAttribute('x', String(anchor.x));
       edge.label.setAttribute('y', String(anchor.y));
+
+      // Wrapped lines carry their own x, which would otherwise stay behind.
+      for (const line of edge.label.querySelectorAll?.('tspan') ?? []) {
+        line.setAttribute('x', String(anchor.x));
+      }
     }
   }
 }
@@ -192,21 +211,24 @@ function readMap(svg) {
       fromId,
       toId,
       path,
+      oneSided: group.dataset.oneSided === '1',
       label: group.querySelector('.map-edge-label'),
       curveOffset: path && from && to ? readCurveOffset(path, from, to) : 0,
     };
   }).filter((edge) => edge.path && positions.has(edge.fromId) && positions.has(edge.toId));
 
-  return { svg, nodes, edges, positions, box: viewBoxOf(svg) };
+  const box = viewBoxOf(svg);
+  return { svg, nodes, edges, positions, bounds: box, view: { ...box } };
 }
 
 function moveNode(map, entry, x, y) {
-  const { box } = map;
+  // Clamped to the drawing's own bounds, not the current (possibly panned) view.
+  const { bounds } = map;
   const radius = 34;
 
   const clamped = {
-    x: clamp(x, box.minX + radius, box.minX + box.width - radius),
-    y: clamp(y, box.minY + radius, box.minY + box.height - radius),
+    x: clamp(x, bounds.minX + radius, bounds.minX + bounds.width - radius),
+    y: clamp(y, bounds.minY + radius, bounds.minY + bounds.height - radius),
   };
 
   map.positions.set(entry.id, clamped);
@@ -214,12 +236,78 @@ function moveNode(map, entry, x, y) {
   redrawEdges(map, entry.id);
 }
 
-function attach(svg) {
+/**
+ * Slide the visible window by (dx, dy) user units, never so far that less than
+ * half of the drawing remains in view in either direction.
+ */
+export function panBox(view, bounds, dx, dy) {
+  return {
+    minX: clamp(view.minX + dx, bounds.minX - bounds.width / 2, bounds.minX + bounds.width / 2),
+    minY: clamp(view.minY + dy, bounds.minY - bounds.height / 2, bounds.minY + bounds.height / 2),
+    width: view.width,
+    height: view.height,
+  };
+}
+
+/** Pressing and dragging empty space with a mouse moves the whole view. */
+function attachPan(svg, map) {
+  let panning = null;
+
+  svg.addEventListener('pointerdown', (event) => {
+    if (event.pointerType !== 'mouse' || event.button !== 0) return;
+    if (event.target?.closest?.('.map-node')) return;
+
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width) return;
+
+    panning = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      origin: { ...map.view },
+      scale: map.view.width / rect.width,
+    };
+
+    svg.setPointerCapture?.(event.pointerId);
+    svg.classList.add('is-panning');
+    event.preventDefault();
+  });
+
+  svg.addEventListener('pointermove', (event) => {
+    if (!panning || event.pointerId !== panning.pointerId) return;
+
+    map.view = panBox(
+      panning.origin,
+      map.bounds,
+      -(event.clientX - panning.startX) * panning.scale,
+      -(event.clientY - panning.startY) * panning.scale,
+    );
+    svg.setAttribute('viewBox', `${map.view.minX} ${map.view.minY} ${map.view.width} ${map.view.height}`);
+  });
+
+  const endPan = (event) => {
+    if (!panning || event.pointerId !== panning.pointerId) return;
+    panning = null;
+    svg.classList.remove('is-panning');
+    if (svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+  };
+
+  svg.addEventListener('pointerup', endPan);
+  svg.addEventListener('pointercancel', endPan);
+}
+
+export function attach(svg) {
   const map = readMap(svg);
   if (map.nodes.length === 0) return;
 
+  attachPan(svg, map);
+
   for (const entry of map.nodes) {
     let dragging = null;
+
+    // Without this the browser starts its own drag-a-link gesture on an
+    // <a> element and swallows the pointer events, so the avatar never moves.
+    entry.element.addEventListener('dragstart', (event) => event.preventDefault());
 
     entry.element.addEventListener('pointerdown', (event) => {
       // Let the browser handle anything that is not a primary press, so
