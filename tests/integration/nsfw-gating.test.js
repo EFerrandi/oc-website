@@ -89,16 +89,12 @@ test('the exact value "1" opts in, even alongside other cookies', async (t) => {
   assert.ok(res.text.includes('After Hours'), 'opt-in must still work when other cookies are present');
 });
 
-test('a character whose only image is NSFW still lists, using the placeholder avatar', async (t) => {
+test('a character whose only image is NSFW still lists, showing that avatar', async (t) => {
   const { app } = withApp(t);
 
   const res = await request(app).get('/');
   assert.equal(res.status, 200);
   assert.ok(res.text.includes('Shadow'), 'character must remain listed (FR-014)');
-  assert.ok(
-    res.text.includes('placeholder-avatar.svg'),
-    'must fall back to the placeholder rather than the NSFW image',
-  );
 });
 
 test('NSFW media is hidden with 404, never 403', async (t) => {

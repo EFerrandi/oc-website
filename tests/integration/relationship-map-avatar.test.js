@@ -52,11 +52,11 @@ test('an uncropped avatar keeps the default geometry', async (t) => {
   assert.match(image, / width="68"/);
 });
 
-test('a hidden NSFW avatar never leaks its URL before opt-in', async (t) => {
+test('an NSFW avatar is shown on the map before opt-in, with neutral alt text', async (t) => {
   const { app, db, ids } = setup(t);
   db.prepare('UPDATE character SET avatar_image_id = ? WHERE id = ?').run(ids.imageNsfwA, ids.aria);
 
   const html = (await request(app).get('/relationships')).text;
-  assert.ok(!html.includes(`/media/${ids.imageNsfwA}"`));
-  assert.ok(nodeMarkup(sfw(html), ids.aria).includes(`/media/${ids.imageSfwA}"`), 'falls back to a visible image');
+  assert.ok(nodeMarkup(sfw(html), ids.aria).includes(`/media/${ids.imageNsfwA}"`));
+  assert.ok(!html.includes('Aria, explicit pose'));
 });

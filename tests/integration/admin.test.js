@@ -584,6 +584,13 @@ test('a failed creation leaves no new artist, character, or files', async (t) =>
   assert.equal(countArtists(db), before.artists);
 });
 
+test('the avatar picker warns that an NSFW avatar is public', async (t) => {
+  const { app, ids } = await withApp(t);
+  const agent = await signIn(app);
+  const page = await agent.get(`/admin/characters/${ids.aria}/edit`);
+  assert.match(page.text, /avatar-public-notice[^>]*>[^<]*visible to everyone/);
+});
+
 test('the edit form offers no new artist and edits never create artists', async (t) => {
   const { app, db, ids } = await withApp(t);
   const agent = await signIn(app);

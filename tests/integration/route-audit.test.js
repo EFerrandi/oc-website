@@ -110,7 +110,6 @@ test('every NSFW resource is a 404 before opt-in and a 200 after', async (t) => 
   const resources = [
     `/media/${ids.imageNsfwA}`,
     `/media/${ids.imageNsfwA}/full`,
-    `/media/${ids.imageNsfwShadow}`,
     `/media/${ids.imageNsfwShadow}/full`,
     `/images/${ids.imageNsfwA}`,
     '/stories/after-hours',

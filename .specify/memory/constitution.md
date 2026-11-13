@@ -22,6 +22,12 @@ promise the site cannot break, and it is a server-side guarantee, never a client
   specific adult item exists at that address, which leaks the very thing being protected.
 - The safe state MUST be the default. Absent, malformed, or unparseable opt-in signals mean
   adult content is hidden.
+- **Avatar exemption (amended 2.0.0)**: the owner has chosen that a character's avatar is
+  public whatever its rating. Only the **preview** of an image that is *currently* some
+  character's avatar may be served to a visitor who has not opted in. It MUST still pass
+  through the single gated route, the full-size variant and every other adult image MUST
+  remain gated and answer "not found", and "currently an avatar" MUST be computed per
+  request from one shared definition, never stored as a flag. No other exemption exists.
 
 **Rationale**: Every other defect here is cosmetic and fixable after the fact. This one is
 not — once adult content has been served to someone who did not ask for it, no later patch
@@ -165,4 +171,8 @@ after it. Principle I MUST be re-verified whenever a new route serving stored co
 added. Complexity MUST be justified against Principle V at the point it is introduced, not
 retrospectively.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-23 | **Last Amended**: 2026-09-23
+**Version**: 2.0.0 | **Ratified**: 2026-09-23 | **Last Amended**: 2026-11-13
+
+<!-- Sync Impact Report (1.0.0 -> 2.0.0, MAJOR): Principle I now permits what it forbade — avatar
+previews of adult images reach non-opted-in visitors. Why: owner request (spec 015). Replacement
+protection: preview only, through the gated route, computed per request, 404 for all else. -->

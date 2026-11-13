@@ -75,14 +75,14 @@ test('the avatar is a gated preview and the full-size route is never linked', as
 
   assert.ok(!res.text.includes(`/media/${ids.imageSfwA}/full`), 'the full-size route was linked');
 
-  // Shadow's only image is NSFW, so before opt-in they fall back to the
-  // placeholder rather than disappearing or rendering a broken image.
+  // Shadow's only image is NSFW, and avatars are public (spec 015), so it is
+  // shown as the avatar rather than a placeholder.
   const shadow = await request(app).get('/characters/shadow');
   assert.equal(shadow.status, 200, 'a character whose every image is NSFW must still have a page');
   assert.match(
     shadow.text.match(/<img[^>]*class="[^"]*profile-avatar-image[^"]*"[^>]*>/)[0],
-    /src="\/img\/placeholder-avatar\.svg"/,
-    'a character with no viewable image must fall back to the placeholder',
+    new RegExp(`src="/media/${ids.imageNsfwShadow}"`),
+    'the NSFW avatar is public',
   );
 });
 

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import request from 'supertest';
@@ -132,8 +132,16 @@ test('a rename cannot collide with an existing name, whatever the spacing or cas
 });
 
 test('changing an image rating moves it between the two audiences at once', async (t) => {
-  const { app, ids } = await withApp(t);
+  const { app, db, ids: seeded } = await withApp(t);
   const agent = await signIn(app);
+
+  // A non-avatar image: avatars are exempt from the rating gate (spec 015).
+  const extra = db.prepare(`INSERT INTO image (file_name, preview_file_name, mime_type, byte_size, width, height,
+      alt_text, short_description, artist_id, is_nsfw, created_at, updated_at)
+    VALUES ('extra.png', 'extra-preview.png', 'image/png', 1, 10, 10, 'Extra', 'Extra', ?, 0, '2030-01-01T00:00:00Z', '2030-01-01T00:00:00Z')`)
+    .run(seeded.artistA).lastInsertRowid;
+  db.prepare('INSERT INTO character_image (character_id, image_id, position) VALUES (?, ?, 1)').run(seeded.brann, extra);
+  const ids = { ...seeded, imageSfwB: Number(extra) };
 
   // Brann's image starts SFW and visible to everyone.
   const openBefore = await request(app).get('/characters/brann');

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { Router } from 'express';
 
 import { NotFoundError } from '../../middleware/errors.js';
+import { isCurrentAvatar } from '../../repositories/avatars.js';
 import { findVisibleImageById } from '../../repositories/images.js';
 
 const PREVIEW_MIME = 'image/webp';
@@ -27,7 +28,8 @@ export function mediaRouter() {
       const id = Number(req.params.imageId);
       if (!Number.isInteger(id) || id <= 0) return next(new NotFoundError());
 
-      const image = findVisibleImageById(db, id, { showNsfw: res.locals.showNsfw });
+      const image = findVisibleImageById(db, id, { showNsfw: res.locals.showNsfw })
+        ?? (variant === 'preview' && isCurrentAvatar(db, id) ? findVisibleImageById(db, id, { showNsfw: true }) : null);
       if (!image) return next(new NotFoundError());
 
       // A video has no preview: both routes serve the stored original.

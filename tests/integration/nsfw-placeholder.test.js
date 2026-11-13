@@ -18,20 +18,17 @@ function setup(t) {
   return { ...ctx, ids };
 }
 
-test('a character whose only images are NSFW still appears, with a placeholder', async (t) => {
-  const { app } = setup(t);
+test('a character whose only images are NSFW still appears, with that avatar', async (t) => {
+  const { app, ids } = setup(t);
 
   const res = await request(app).get('/');
   assert.equal(res.status, 200);
 
   assert.ok(res.text.includes('Shadow'), 'the character is still listed');
-  assert.ok(res.text.includes('placeholder-avatar.svg'), 'a placeholder stands in for the avatar');
-
-  // The placeholder must not be a bare decorative image.
-  assert.match(res.text, /placeholder-avatar\.svg" alt="[^"]+"/, 'the placeholder carries alt text');
+  assert.ok(res.text.includes(`/media/${ids.imageNsfwShadow}`), 'the avatar is public (spec 015)');
 });
 
-test('the placeholder is replaced by the real avatar once opted in', async (t) => {
+test('the avatar looks the same once opted in', async (t) => {
   const { app, ids } = setup(t);
 
   const res = await request(app).get('/').set('Cookie', NSFW_ON);
@@ -43,7 +40,7 @@ test('the placeholder is replaced by the real avatar once opted in', async (t) =
   );
 });
 
-test('the detail page of an NSFW-only character leaks nothing', async (t) => {
+test('the detail page of an NSFW-only character leaks nothing but the avatar', async (t) => {
   const { app, ids } = setup(t);
 
   const res = await request(app).get('/characters/shadow');
@@ -55,9 +52,9 @@ test('the detail page of an NSFW-only character leaks nothing', async (t) => {
     'an explicit empty state explains the absence rather than showing a broken gap',
   );
 
-  assert.ok(
-    !res.text.includes(`/media/${ids.imageNsfwShadow}`),
-    'no NSFW media URL appears in the markup',
+  assert.equal(
+    (res.text.match(new RegExp(`/media/${ids.imageNsfwShadow}\\b`, 'g')) ?? []).length, 1,
+    'the NSFW image appears only as the avatar, once',
   );
 
   for (const marker of NSFW_MARKERS) {

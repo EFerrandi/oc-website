@@ -19,6 +19,9 @@ clears when the browser closes. Until then:
   would confirm the resource exists.
 - Uploaded files are never served as static assets. They are only reachable
   through the rating-aware `/media` routes.
+- **Avatar exemption:** a character's current avatar *preview* is always
+  shown in listings, even if it is NSFW and the viewer has not opted in. The
+  full-size image and everything else stay gated (404). See constitution 2.0.0.
 
 If you change anything that serves stored content, run `npm run test:nsfw`
 before anything else.

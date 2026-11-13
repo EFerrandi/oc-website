@@ -50,10 +50,10 @@ export function listAllRelationships(db, { showNsfw }) {
  * The same rows as listAllRelationships, with each endpoint's effective avatar
  * attached, for drawing the relationship map.
  *
- * The avatar goes through resolveEffectiveAvatar — the same rating-filtered
- * path the gallery uses — rather than reading avatar_image_id directly, so a
- * character whose designated avatar is NSFW falls back to a visible image for
- * a visitor who has not opted in instead of leaking or blanking.
+ * The avatar goes through resolveEffectiveAvatar — the same path the gallery
+ * uses — rather than reading avatar_image_id directly, so the map shows the
+ * same avatar as every other listing, NSFW or not (the preview is exempt from
+ * the rating gate; alt text is neutralised for visitors who have not opted in).
  *
  * Avatars are cached per character within one call because a character
  * typically appears in several relationships and the resolution costs two
