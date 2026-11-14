@@ -341,8 +341,8 @@ test('the drag script is deferred and the map is complete without it', async (t)
   assert.ok(region.includes('map-text-equivalent'), 'the text equivalent is not in the delivered HTML');
 });
 
-// T044 � FR-019: the keys must be discoverable, not hidden in a tooltip.
-test('the keyboard repositioning help is visible page text', async (t) => {
+// US1: movement instructions must match the face-only interaction.
+test('relationship help documents face dragging and keyboard link navigation, not keyboard movement', async (t) => {
   const { app } = withApp(t);
 
   const res = await get(app);
@@ -351,12 +351,64 @@ test('the keyboard repositioning help is visible page text', async (t) => {
   assert.ok(helpMatch, 'no map help text was rendered');
 
   const help = helpMatch.join(' ');
-  assert.match(help, /arrow key/i, 'the help text must name the arrow keys');
-  assert.match(help, /shift/i, 'the help text must mention the larger Shift step');
+  assert.match(help, /drag.*face|face.*drag/i, 'the help text must explain face dragging');
+  assert.match(help, /Tab/i, 'the help text must explain keyboard navigation');
+  assert.match(help, /Enter/i, 'the help text must explain keyboard activation');
+  assert.match(help, /reload/i, 'the help text must explain that positions reset');
+  assert.doesNotMatch(help, /arrow keys?.{0,30}mov|Shift.{0,30}mov/i, 'the help must not advertise keyboard movement');
 
-  // It must be real text, not an attribute a pointer user has to hover to find.
-  assert.ok(
-    !/title="[^"]*arrow key/i.test(res.text),
-    'keyboard help belongs in the page, not in a title attribute',
-  );
+  const mapNode = res.text.match(/<a\b[^>]*class="[^"]*map-node[^"]*"[^>]*>/);
+  assert.ok(mapNode, 'character links must remain in the document');
+  assert.match(mapNode[0], /href="\/characters\//, 'character link destination must remain available');
+  assert.match(mapNode[0], /aria-label="[^"]+"/, 'character link must retain an accessible name');
+});
+
+test('relationship areas are stacked and the map frame owns any horizontal scrolling', async (t) => {
+  const { app } = withApp(t);
+  const res = await get(app);
+
+  const sfw = res.text.indexOf('data-map-region="sfw"');
+  const nsfw = res.text.indexOf('data-map-region="nsfw"');
+  assert.ok(sfw >= 0 && nsfw > sfw, 'SFW relationship area must precede NSFW');
+  assert.match(css, /\.relationship-cards\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s, 'relationship areas must be explicitly stacked');
+  assert.match(css, /\.relationship-map-frame\s*\{[^}]*overflow-x:\s*auto/s, 'horizontal scrolling must remain within each map frame');
+
+  const svg = mapRegion(res.text, 'sfw').match(/<svg\b[^>]*class="relationship-map"[^>]*>/);
+  assert.ok(svg, 'map SVG must render');
+  assert.match(svg[0], /width="[\d.]+"/, 'SVG must preserve its computed diagram width');
+  const width = Number(svg[0].match(/width="([\d.]+)"/)[1]);
+  assert.ok(width > 400, `computed map width ${width} must allow the enlarged layout`);
+  assert.match(mapRegion(res.text, 'sfw'), /<image\b[^>]*width="96" height="96"/, 'avatars must use the enlarged 96px face size');
+  assert.match(css, /\.map-edge-label\s*\{[^}]*font-size:\s*16px/s, 'relationship text must be enlarged');
+  assert.match(css, /\.map-node-name\s*\{[^}]*font-size:\s*16px/s, 'character names must be enlarged');
+});
+
+test('relationship areas stay in one column after all stylesheet overrides', () => {
+  const gridRules = [...css.matchAll(/\.relationship-cards\s*\{([^}]*)\}/g)];
+  assert.ok(gridRules.length > 0, 'relationship cards need a layout rule');
+
+  const finalColumns = [...gridRules.at(-1)[1].matchAll(/grid-template-columns:\s*([^;]+);/g)].at(-1)?.[1].trim();
+  assert.equal(finalColumns, 'minmax(0, 1fr)', 'no later theme rule may place SFW and NSFW side by side');
+});
+
+test('each character link has a separate circular face drag target', async (t) => {
+  const { app } = withApp(t);
+  const region = mapRegion((await get(app)).text, 'sfw');
+
+  assert.match(region, /<circle\b[^>]*class="map-node-face"[^>]*data-drag-handle="face"/);
+  assert.match(css, /\.map-node-face\s*\{[^}]*touch-action:\s*none[^}]*pointer-events:\s*all/s);
+  assert.match(css, /\.relationship-map\s*\{[^}]*touch-action:\s*auto/s, 'empty-space gestures must remain native scrolling');
+});
+
+test('character links remain keyboard-focusable with a visible focus indicator', async (t) => {
+  const { app } = withApp(t);
+  const region = mapRegion((await get(app)).text, 'sfw');
+  const anchors = [...region.matchAll(/<a\b[^>]*class="[^"]*map-node[^"]*"[^>]*>/g)].map((match) => match[0]);
+
+  assert.ok(anchors.length > 0);
+  for (const anchor of anchors) {
+    assert.match(anchor, /href="\/characters\//);
+    assert.doesNotMatch(anchor, /tabindex="-1"/, 'character links must remain in the tab order');
+  }
+  assert.match(css, /\.map-node:focus-visible/, 'keyboard focus must remain visible on character links');
 });

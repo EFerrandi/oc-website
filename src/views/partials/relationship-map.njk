@@ -18,6 +18,8 @@
   {% set mapId = "map-" + rating %}
 
   <svg class="relationship-map"
+       width="{{ layout.width | round(2) }}"
+       height="{{ layout.height | round(2) }}"
        viewBox="0 0 {{ layout.width | round(2) }} {{ layout.height | round(2) }}"
        role="group"
        aria-labelledby="{{ mapId }}-title"
@@ -34,7 +36,7 @@
          follow the end of whichever curve it is attached to. #}
       <marker id="{{ mapId }}-arrow" class="map-arrow"
               viewBox="0 0 10 10" refX="9" refY="5"
-              markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14"
+              markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16"
               orient="auto">
         <path d="M 0 0 L 10 5 L 0 10 z"></path>
       </marker>
@@ -49,7 +51,7 @@
                 x="{{ edge.labelX | round(2) }}"
                 y="{{ edge.labelY | round(2) }}"
                 text-anchor="middle"
-                dominant-baseline="middle">{% for line in edge.labelLines %}<tspan x="{{ edge.labelX | round(2) }}" dy="{{ (-(edge.labelLines.length - 1) * 8) if loop.first else 16 }}">{{ line }}</tspan>{% endfor %}</text>
+                dominant-baseline="middle">{% for line in edge.labelLines %}<tspan x="{{ edge.labelX | round(2) }}" dy="{{ (-(edge.labelLines.length - 1) * 10) if loop.first else 20 }}">{{ line }}</tspan>{% endfor %}</text>
         </g>
       {% endfor %}
     </g>
@@ -70,10 +72,14 @@
                  preserveAspectRatio="none"
                  clip-path="url(#{{ mapId }}-clip)"
                  aria-hidden="true"></image>
+          <circle class="map-node-face"
+                  data-drag-handle="face"
+                  cx="0" cy="0" r="{{ node.r }}"
+                  fill="transparent"></circle>
           <circle class="map-node-ring" cx="0" cy="0" r="{{ node.r }}"></circle>
           <text class="map-node-name"
-                x="0" y="{{ node.r + 16 }}"
-                text-anchor="middle">{% for line in node.nameLines %}<tspan x="0" dy="{{ 0 if loop.first else 16 }}">{{ line }}</tspan>{% endfor %}</text>
+                x="0" y="{{ node.r + 20 }}"
+                text-anchor="middle">{% for line in node.nameLines %}<tspan x="0" dy="{{ 0 if loop.first else 20 }}">{{ line }}</tspan>{% endfor %}</text>
         </a>
       {% endfor %}
     </g>

@@ -14,26 +14,26 @@
  */
 
 /** Drawn radius of a character's avatar circle. */
-export const NODE_RADIUS = 34;
+export const NODE_RADIUS = 48;
 
 /** Clear space between adjacent avatars on the same ring. */
-const NODE_GAP = 26;
+const NODE_GAP = 36;
 
 /** Margin around the whole drawing, leaving room for names and labels. */
-const PADDING = 56;
+const PADDING = 64;
 
 /** Extra room below a node for its name text, per line of name. */
-const NAME_SPACE = 22;
+const NAME_SPACE = 28;
 
 /** Vertical distance between wrapped lines of text. */
-export const LINE_HEIGHT = 16;
+export const LINE_HEIGHT = 20;
 
 /** Characters per line before a label or a name wraps. */
 const LABEL_MAX_CHARS = 20;
 const NAME_MAX_CHARS = 16;
 
 /** Approximate width of one character at the map's 13px font. */
-const CHAR_WIDTH = 7.5;
+const CHAR_WIDTH = 9.2;
 
 /** Gap between the avatar rim and an arrowhead tip. */
 const ARROW_GAP = 3;
@@ -79,7 +79,7 @@ function nameSpace(lines) {
 const CURVE_STEP = 26;
 
 /** Smallest ring radius, so a two-node component is not drawn comically small. */
-const MIN_RADIUS = 90;
+const MIN_RADIUS = 120;
 
 /** Clear space between two unrelated groups, so they read as separate (FR-014). */
 const COMPONENT_GAP = 48;

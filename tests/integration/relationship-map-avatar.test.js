@@ -39,17 +39,17 @@ test('the saved avatar crop is applied to the map avatar', async (t) => {
   assert.match(node, /data-crop-zoom="2"/);
   const image = node.match(/<image[^>]*>/)[0];
   const width = Number(image.match(/ width="([\d.-]+)"/)[1]);
-  assert.equal(width, 136, 'zoom 2 doubles the 68px avatar');
+  assert.equal(width, 192, 'zoom 2 doubles the 96px avatar');
   const x = Number(image.match(/ x="([\d.-]+)"/)[1]);
-  assert.ok(x > -68, 'a left-weighted crop shifts the image right of the default');
+  assert.ok(x > -96, 'a left-weighted crop shifts the image right of the default');
 });
 
 test('an uncropped avatar keeps the default geometry', async (t) => {
   const { app, ids } = setup(t);
   const node = nodeMarkup(sfw((await request(app).get('/relationships')).text), ids.aria);
   const image = node.match(/<image[^>]*>/)[0];
-  assert.match(image, / x="-34"/);
-  assert.match(image, / width="68"/);
+  assert.match(image, / x="-48"/);
+  assert.match(image, / width="96"/);
 });
 
 test('an NSFW avatar is shown on the map before opt-in, with neutral alt text', async (t) => {

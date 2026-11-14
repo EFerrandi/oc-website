@@ -135,7 +135,9 @@ image files.
 `/relationships` draws each character as their avatar, joined by a line to
 every character they are related to, with the relationship written at the
 middle of the line. There are two maps: one for SFW relationships and one for
-NSFW relationships, which is empty until you opt in.
+NSFW relationships, stacked vertically; the NSFW map is empty until you opt
+in. On narrow screens, a dense map scrolls within its own frame so the page
+does not overflow horizontally and its faces and labels remain readable.
 
 A relationship is **two-sided** (a plain line, direction does not matter) or
 **one-sided** (an arrow from the character who feels it toward the other). The
@@ -171,16 +173,14 @@ even though the image itself would 404.
 
 | Input | Effect |
 |---|---|
-| Drag an avatar (mouse, pen or touch) | Moves it; its lines and labels follow |
-| Press and drag empty space (mouse) | Pans the view; on touch, empty space still scrolls the page |
-| <kbd>Tab</kbd> | Focuses the next avatar |
-| Arrow keys | Moves the focused avatar a small step |
-| <kbd>Shift</kbd> + arrow keys | Moves it a larger step |
+| Drag an avatar face (mouse, pen or touch) | Moves only that character; its lines and labels follow |
+| Drag empty space | Does not move the map; touch scrolling remains available |
+| <kbd>Tab</kbd> | Focuses the next character link |
 | Click or <kbd>Enter</kbd> | Opens that character's page |
 
-Rearranging is never saved — not to the server, not to a cookie, not to local
-storage. Reloading restores the default layout, and a unit test scans the
-script to keep it that way.
+Keyboard repositioning is intentionally not available. Character links remain
+keyboard-focusable and operable. Rearranging is never saved — not to the server,
+not to a cookie, not to local storage. Reloading restores the default layout.
 
 ## Scripts
 

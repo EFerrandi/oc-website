@@ -57,21 +57,35 @@ test('layoutGraph keeps wrapped labels clear of the avatars on a two-node map', 
   assert.ok(rimGap >= widest, `rim gap ${rimGap} must fit label width ${widest}`);
 });
 
+test('relationship avatars use the enlarged radius and geometry includes their full bounds', () => {
+  const result = layoutGraph(nodes('Aria', 'Brann'), edges([1, 2]));
+  const [a, b] = result.nodes;
+  const [edge] = result.edges;
+
+  assert.equal(a.r, 48, 'face diameter must be 96 layout units');
+  for (const node of result.nodes) {
+    assert.ok(node.x - node.r >= 0 && node.x + node.r <= result.width, 'avatar must fit horizontally');
+    assert.ok(node.y - node.r >= 0 && node.y + node.r <= result.height, 'avatar must fit vertically');
+  }
+  assert.ok(Math.hypot(a.x - b.x, a.y - b.y) > 2 * a.r, 'two avatars must not overlap');
+  assert.ok(edge.labelLines.join(' ').includes(edge.label), 'wrapping must preserve the complete relationship label');
+});
+
 test('layoutGraph reproduces the gallery cover + object-position + zoom geometry', () => {
   const wide = [{ ...nodes('Aria')[0], imageWidth: 200, imageHeight: 100, cropX: 50, cropY: 50, cropZoom: 1 }];
   const [n] = layoutGraph(wide, []).nodes;
-  assert.equal(n.imageWidth, 136);
-  assert.equal(n.imageHeight, 68);
-  assert.equal(n.imageX, -34 + (68 - 136) * 0.5);
-  assert.equal(n.imageY, -34);
+  assert.equal(n.imageWidth, 192);
+  assert.equal(n.imageHeight, 96);
+  assert.equal(n.imageX, -48 + (96 - 192) * 0.5);
+  assert.equal(n.imageY, -48);
 });
 
 test('layoutGraph zooms about the crop focus point like transform-origin', () => {
   const zoomed = [{ ...nodes('Aria')[0], imageWidth: 100, imageHeight: 100, cropX: 0, cropY: 100, cropZoom: 2 }];
   const [n] = layoutGraph(zoomed, []).nodes;
-  assert.equal(n.imageWidth, 136);
-  assert.equal(n.imageX, -34, 'left focus keeps the left edge fixed');
-  assert.equal(n.imageY, -34 + 68 - 136, 'bottom focus keeps the bottom edge fixed');
+  assert.equal(n.imageWidth, 192);
+  assert.equal(n.imageX, -48, 'left focus keeps the left edge fixed');
+  assert.equal(n.imageY, -48 + 96 - 192, 'bottom focus keeps the bottom edge fixed');
 });
 
 test('layoutGraph does not mutate its arguments', () => {

@@ -13,6 +13,10 @@ import { hashPassword } from '../../src/services/auth.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cssPath = path.resolve(here, '../../src/public/css/main.css');
 const css = fs.readFileSync(cssPath, 'utf8');
+const relationshipMapScript = fs.readFileSync(
+  path.resolve(here, '../../src/public/js/relationship-map.js'),
+  'utf8',
+);
 
 const PASSWORD = 'correct-horse-battery-staple';
 
@@ -85,6 +89,16 @@ test('anything that can overflow is allowed to scroll within itself', () => {
   );
 });
 
+test('dense relationship maps scroll inside their own frame without widening the page', () => {
+  assert.match(
+    css,
+    /\.relationship-map-frame\s*\{[^}]*max-width:\s*100%[^}]*overflow-x:\s*auto/s,
+    'relationship map scrolling must be confined to a frame within the viewport',
+  );
+  assert.match(css, /\.relationship-card\s*\{[^}]*min-width:\s*0/s, 'map cards must shrink to the available page width');
+  assert.match(css, /\.relationship-cards\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s, 'relationship areas must remain in one column');
+});
+
 test('keyboard focus is always visible', () => {
   assert.match(css, /:focus-visible/, 'a focus indicator is defined');
   assert.match(
@@ -96,6 +110,15 @@ test('keyboard focus is always visible', () => {
   // Removing the outline without replacing it is the classic accessibility bug.
   const suppressions = [...css.matchAll(/outline:\s*(none|0)\s*;/g)];
   assert.equal(suppressions.length, 0, 'the focus outline must never be removed outright');
+});
+
+test('relationship-map links retain keyboard focus without enabling keyboard movement', () => {
+  assert.match(css, /\.map-node:focus-visible/, 'character links retain a visible focus state');
+  assert.doesNotMatch(
+    relationshipMapScript,
+    /addEventListener\(['"]keydown['"]/,
+    'the relationship-map script must not move nodes from keyboard input',
+  );
 });
 
 test('interactive controls are real, focusable elements', async (t) => {

@@ -71,6 +71,12 @@ enables.
   bookmarked, shared, and reloaded.
 - Every interactive control MUST be keyboard-operable with a visible focus indicator. Any
   control that traps focus MUST return it where the visitor left off.
+- **Relationship-map movement exception (amended 3.0.0)**: visitors may reposition
+  relationship-map characters only by dragging the character's avatar with a pointer or
+  touch. Repositioning MUST NOT be offered through keyboard controls. This exception applies
+  only to changing map-node positions; character links MUST remain keyboard-focusable with a
+  visible focus indicator and MUST remain activatable by keyboard. All other interactive
+  controls remain subject to the keyboard-operability requirement above.
 - Every image MUST carry meaningful alternative text.
 - Every page MUST remain usable without horizontal scrolling from narrow phone widths to
   wide desktop widths.
@@ -171,8 +177,12 @@ after it. Principle I MUST be re-verified whenever a new route serving stored co
 added. Complexity MUST be justified against Principle V at the point it is introduced, not
 retrospectively.
 
-**Version**: 2.0.0 | **Ratified**: 2026-09-23 | **Last Amended**: 2026-11-13
+**Version**: 3.0.0 | **Ratified**: 2026-09-23 | **Last Amended**: 2026-11-14
 
 <!-- Sync Impact Report (1.0.0 -> 2.0.0, MAJOR): Principle I now permits what it forbade — avatar
 previews of adult images reach non-opted-in visitors. Why: owner request (spec 015). Replacement
 protection: preview only, through the gated route, computed per request, 404 for all else. -->
+<!-- Sync Impact Report (2.0.0 -> 3.0.0, MAJOR): Principle III now permits the relationship map
+to omit keyboard repositioning, by explicit owner choice (spec 016). Replacement safeguards:
+face-only pointer/touch movement; map character links remain keyboard-focusable, visibly focused,
+and keyboard-activatable; no other control is exempted. -->

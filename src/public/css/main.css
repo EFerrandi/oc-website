@@ -355,10 +355,13 @@ textarea { min-height: 8rem; resize: vertical; }
 
 .relationship-cards {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: calc(var(--gap) * 1.5);
+  min-width: 0;
 }
 
 .relationship-card {
+  min-width: 0;
   padding: var(--gap);
   background: var(--surface);
   border: 1px solid var(--border);
@@ -368,8 +371,7 @@ textarea { min-height: 8rem; resize: vertical; }
 .relationship-card h2 { margin-top: 0; }
 
 .relationship-map-frame {
-  /* Horizontal scroll is the escape hatch for a very dense map on a narrow
-     screen; the viewBox already scales the drawing down to the container. */
+  max-width: 100%;
   overflow-x: auto;
   border-radius: var(--radius);
   background: var(--surface-2);
@@ -381,17 +383,16 @@ textarea { min-height: 8rem; resize: vertical; }
  */
 .relationship-map {
   display: block;
-  width: 100%;
+  width: auto;
+  min-width: 100%;
+  max-width: none;
   height: auto;
-  /* Vertical page scroll stays available on touch; only a character drags
-     there. Mouse panning of empty space is handled by the script. */
-  touch-action: pan-y;
-  cursor: grab;
+  /* The face handle owns touch dragging; empty space scrolls the map frame/page. */
+  touch-action: auto;
 }
 
-.relationship-map.is-panning { cursor: grabbing; }
-
-.map-node { touch-action: none; user-select: none; -webkit-user-drag: none; }
+.map-node { user-select: none; -webkit-user-drag: none; }
+.map-node-face { touch-action: none; cursor: grab; pointer-events: all; }
 
 .map-arrow path { fill: var(--brand-medium); }
 
@@ -408,7 +409,7 @@ textarea { min-height: 8rem; resize: vertical; }
 
 .map-edge-label {
   fill: var(--muted);
-  font-size: 13px;
+  font-size: 16px;
   /* The stroke is painted first and acts as a backdrop, so a label stays
      legible where it crosses another line. paint-order is what makes the
      stroke sit behind the glyphs instead of thickening them. */
@@ -417,9 +418,6 @@ textarea { min-height: 8rem; resize: vertical; }
   paint-order: stroke fill;
   pointer-events: none;
 }
-
-.map-node { cursor: grab; }
-.map-node:active { cursor: grabbing; }
 
 .map-node-ring {
   fill: none;
@@ -437,7 +435,7 @@ textarea { min-height: 8rem; resize: vertical; }
 
 .map-node-name {
   fill: var(--text);
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 600;
   stroke: var(--surface-2);
   stroke-width: 4px;
@@ -449,7 +447,7 @@ textarea { min-height: 8rem; resize: vertical; }
   .map-node-ring { transition: stroke 120ms ease; }
 }
 
-/* ---------- Relationship map: drag affordances (US3) ---------- */
+/* ---------- Relationship map: drag affordances ---------- */
 
 .map-help kbd {
   padding: 0.1rem 0.35rem;
@@ -461,16 +459,14 @@ textarea { min-height: 8rem; resize: vertical; }
 
 /* The drag enhancement only ever adds this class; without JavaScript the
    cursor stays the default and the node is simply a link. */
-.map-node.is-dragging { cursor: grabbing; }
+.map-node.is-dragging .map-node-face { cursor: grabbing; }
 
 .map-node.is-dragging .map-node-ring {
   stroke: var(--accent);
   stroke-width: 3;
 }
 
-/* Focus must be visible on an SVG link too, or keyboard repositioning is
-   unusable � you cannot aim arrow keys at a node you cannot see (FR-019). The ring adds
-   to the browser's own focus indicator; it never replaces it. */
+/* Focus remains visible on SVG links even though movement is pointer-only. */
 .map-node:focus-visible .map-node-ring {
   stroke: var(--accent);
   stroke-width: 4;
@@ -855,7 +851,6 @@ select option { background: var(--surface-2); color: var(--text); }
 }
 .story-permalink { margin-bottom: 0; }
 
-.relationship-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr)); }
 .relationship-card { min-width: 0; }
 .relationship-map-frame {
   border: 1px solid var(--border);
