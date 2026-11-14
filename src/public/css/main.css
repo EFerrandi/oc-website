@@ -374,6 +374,10 @@ textarea { min-height: 8rem; resize: vertical; }
   max-width: 100%;
   overflow-x: auto;
   border-radius: var(--radius);
+}
+
+.profile-relationship-map-frame {
+  margin-block: var(--space-3) var(--space-5);
   background: var(--surface-2);
 }
 
@@ -418,6 +422,19 @@ textarea { min-height: 8rem; resize: vertical; }
   paint-order: stroke fill;
   pointer-events: none;
 }
+
+.relationship-map.has-emphasis .map-edge.is-emphasized .map-edge-line {
+  stroke: var(--accent);
+  stroke-width: 4;
+}
+
+.relationship-map.has-emphasis .map-edge.is-emphasized .map-edge-label {
+  fill: var(--accent);
+  font-weight: 700;
+}
+
+.relationship-map.has-emphasis .map-edge.is-subdued .map-edge-line { opacity: 0.4; }
+.relationship-map.has-emphasis .map-edge.is-subdued .map-edge-label { opacity: 0.55; }
 
 .map-node-ring {
   fill: none;

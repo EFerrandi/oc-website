@@ -16,6 +16,12 @@ class FakeElement {
     this.classList = {
       add: (c) => this.classes.add(c),
       remove: (c) => this.classes.delete(c),
+      toggle: (c, force) => {
+        const shouldAdd = force ?? !this.classes.has(c);
+        if (shouldAdd) this.classes.add(c);
+        else this.classes.delete(c);
+        return shouldAdd;
+      },
     };
   }
 
@@ -71,6 +77,7 @@ function buildMap({ oneSided = false, nodeBPosition = { x: 300, y: 200 }, labelW
   };
   const nodeA = makeNode(1, 100, 100);
   const nodeB = makeNode(2, nodeBPosition.x, nodeBPosition.y);
+  const nodeC = makeNode(3, 350, 250);
 
   const path = new FakeElement({ d: `M 100 100 L ${nodeBPosition.x} ${nodeBPosition.y}` });
   const tspan = new FakeElement({ x: '200' });
@@ -87,8 +94,15 @@ function buildMap({ oneSided = false, nodeBPosition = { x: 300, y: 200 }, labelW
   const edge = new FakeElement();
   edge.dataset = { from: '1', to: '2', oneSided: oneSided ? '1' : '0' };
   edge.querySelector = (s) => (s === '.map-edge-line' ? path : label);
+  const unrelatedPath = new FakeElement({ d: `M ${nodeBPosition.x} ${nodeBPosition.y} L 350 250` });
+  const unrelatedLabel = new FakeElement({ x: '325', y: '225' });
+  unrelatedLabel.getBBoxValue = () => ({ x: 305, y: 215, width: 40, height: 20 });
+  unrelatedLabel.querySelectorAll = () => [];
+  const unrelatedEdge = new FakeElement();
+  unrelatedEdge.dataset = { from: '2', to: '3', oneSided: '0' };
+  unrelatedEdge.querySelector = (s) => (s === '.map-edge-line' ? unrelatedPath : unrelatedLabel);
 
-  svg.querySelectorAll = (s) => (s === '.map-node' ? [nodeA, nodeB] : s === '.map-edge' ? [edge] : []);
+  svg.querySelectorAll = (s) => (s === '.map-node' ? [nodeA, nodeB, nodeC] : s === '.map-edge' ? [edge, unrelatedEdge] : []);
   svg.getBoundingClientRect = () => ({ width: 400, height: 300 });
   svg.getScreenCTM = () => ({ inverse: () => ({}) });
   svg.createSVGPoint = () => ({
@@ -98,7 +112,10 @@ function buildMap({ oneSided = false, nodeBPosition = { x: 300, y: 200 }, labelW
   });
 
   attach(svg);
-  return { svg, nodeA, faceA: nodeA.face, nameA: nodeA.name, edge, path, tspan, label };
+  return {
+    svg, nodeA, nodeB, nodeC, faceA: nodeA.face, nameA: nodeA.name,
+    edge, unrelatedEdge, path, unrelatedPath, tspan, label,
+  };
 }
 
 test('a mouse press-and-drag moves a character and redraws its edges', () => {
@@ -241,4 +258,60 @@ test('pressing the name or using arrow keys never moves a node', () => {
 
   assert.equal(nodeA.getAttribute('transform'), original);
   assert.equal(arrow.defaultPrevented, false);
+});
+
+test('hover emphasizes only incident relationships and keeps unrelated ones visible', () => {
+  const { svg, nodeA, edge, unrelatedEdge } = buildMap();
+
+  nodeA.fire('pointerenter');
+
+  assert.equal(svg.classes.has('has-emphasis'), true);
+  assert.equal(edge.classes.has('is-emphasized'), true);
+  assert.equal(edge.classes.has('is-subdued'), false);
+  assert.equal(unrelatedEdge.classes.has('is-subdued'), true);
+  assert.equal(unrelatedEdge.classes.has('is-emphasized'), false);
+
+  nodeA.fire('pointerleave');
+  assert.equal(svg.classes.has('has-emphasis'), false);
+  assert.equal(edge.classes.has('is-emphasized'), false);
+  assert.equal(unrelatedEdge.classes.has('is-subdued'), false);
+});
+
+test('keyboard focus matches hover and overlapping hover/focus state resets only when both end', () => {
+  const { svg, nodeA, edge, unrelatedEdge } = buildMap();
+
+  nodeA.fire('focus');
+  assert.equal(edge.classes.has('is-emphasized'), true);
+  assert.equal(unrelatedEdge.classes.has('is-subdued'), true);
+
+  nodeA.fire('pointerenter');
+  nodeA.fire('pointerleave');
+  assert.equal(svg.classes.has('has-emphasis'), true, 'focus keeps emphasis active after pointer exit');
+  assert.equal(edge.classes.has('is-emphasized'), true);
+
+  nodeA.fire('blur');
+  assert.equal(svg.classes.has('has-emphasis'), false);
+  assert.equal(edge.classes.has('is-emphasized'), false);
+  assert.equal(unrelatedEdge.classes.has('is-subdued'), false);
+});
+
+test('pointer hover takes precedence over a different focused character and focus returns on pointer exit', () => {
+  const { svg, nodeA, nodeC, edge, unrelatedEdge } = buildMap();
+
+  nodeC.fire('focus');
+  assert.equal(unrelatedEdge.classes.has('is-emphasized'), true);
+
+  nodeA.fire('pointerenter');
+  assert.equal(svg.classes.has('has-emphasis'), true);
+  assert.equal(edge.classes.has('is-emphasized'), true, 'the hovered character is emphasized');
+  assert.equal(unrelatedEdge.classes.has('is-subdued'), true, 'focused-node edges are subdued during another character hover');
+
+  nodeA.fire('pointerleave');
+  assert.equal(edge.classes.has('is-subdued'), true, 'hovered-node edges are subdued after pointer exit');
+  assert.equal(unrelatedEdge.classes.has('is-emphasized'), true, 'focus is restored after pointer exit');
+
+  nodeC.fire('blur');
+  assert.equal(svg.classes.has('has-emphasis'), false);
+  assert.equal(edge.classes.has('is-subdued'), false);
+  assert.equal(unrelatedEdge.classes.has('is-emphasized'), false);
 });

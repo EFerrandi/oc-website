@@ -220,6 +220,7 @@ function readMap(svg) {
     const to = positions.get(toId);
 
     return {
+      group,
       fromId,
       toId,
       path,
@@ -228,6 +229,40 @@ function readMap(svg) {
       curveOffset: path && from && to ? readCurveOffset(path, from, to) : 0,
     };
   }).filter((edge) => edge.path && positions.has(edge.fromId) && positions.has(edge.toId));
+
+  let hoveredNodeId = null;
+  let focusedNodeId = null;
+  const updateEmphasis = () => {
+    const activeNodeId = hoveredNodeId ?? focusedNodeId;
+
+    svg.classList.toggle('has-emphasis', activeNodeId !== null);
+    for (const edge of edges) {
+      const related = edge.fromId === activeNodeId || edge.toId === activeNodeId;
+      edge.group.classList.toggle('is-emphasized', activeNodeId !== null && related);
+      edge.group.classList.toggle('is-subdued', activeNodeId !== null && !related);
+    }
+  };
+
+  for (const entry of nodes) {
+    entry.element.addEventListener('pointerenter', () => {
+      hoveredNodeId = entry.id;
+      updateEmphasis();
+    });
+    entry.element.addEventListener('pointerleave', () => {
+      if (hoveredNodeId !== entry.id) return;
+      hoveredNodeId = null;
+      updateEmphasis();
+    });
+    entry.element.addEventListener('focus', () => {
+      focusedNodeId = entry.id;
+      updateEmphasis();
+    });
+    entry.element.addEventListener('blur', () => {
+      if (focusedNodeId !== entry.id) return;
+      focusedNodeId = null;
+      updateEmphasis();
+    });
+  }
 
   const box = viewBoxOf(svg);
   return { svg, nodes, edges, positions, nodeRadii, bounds: box };

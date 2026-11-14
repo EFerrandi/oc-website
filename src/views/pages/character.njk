@@ -1,6 +1,7 @@
 {% extends "layout.njk" %}
 {% from "partials/credit.njk" import credit %}
 {% from "partials/image-preview.njk" import imagePreview %}
+{% import "partials/relationship-map.njk" as map %}
 
 {% block title %}{{ character.name }} — OC Gallery{% endblock %}
 
@@ -85,6 +86,16 @@
     <section class="profile-relationships">
       <h2>Relationships</h2>
       {% if character.relationships.length %}
+        {% if character.relationshipMap %}
+          <div class="relationship-map-frame profile-relationship-map-frame">
+            {{ map.relationshipMap(
+              character.relationshipMap,
+              "profile",
+              character.name + " relationships",
+              character.id
+            ) }}
+          </div>
+        {% endif %}
         <ul>
           {% for r in character.relationships %}
             <li>

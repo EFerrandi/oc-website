@@ -1,6 +1,6 @@
 import { resolveEffectiveAvatar } from './avatars.js';
 import { listImagesForCharacter } from './images.js';
-import { listRelationshipsForCharacter } from './relationships.js';
+import { listRelationshipsForCharacterWithAvatars } from './relationships.js';
 import { listStoriesForCharacter } from './stories.js';
 import { listTagsForCharacter } from './tags.js';
 
@@ -108,7 +108,7 @@ export function findCharacterBySlug(db, slug, { showNsfw, includeOwnership = fal
     avatar: resolveAvatarWithCrop(db, row, { showNsfw }),
     images: listImagesForCharacter(db, row.id, { showNsfw }),
     stories: listStoriesForCharacter(db, row.id, { showNsfw }),
-    relationships: listRelationshipsForCharacter(db, row.id, { showNsfw }),
+    relationships: listRelationshipsForCharacterWithAvatars(db, row.id, { showNsfw }),
   };
 }
 

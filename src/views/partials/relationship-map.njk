@@ -14,7 +14,7 @@
       in the same place as the drawing it replaces.
 #}
 
-{% macro relationshipMap(layout, rating, title) %}
+{% macro relationshipMap(layout, rating, title, centerId) %}
   {% set mapId = "map-" + rating %}
 
   <svg class="relationship-map"
@@ -60,11 +60,13 @@
       {% for node in layout.nodes %}
         <a class="map-node"
            data-node="{{ node.id }}"
+           {% if centerId and node.id == centerId %}data-center="1"{% endif %}
            data-crop-zoom="{{ node.cropZoom }}"
            href="/characters/{{ node.slug }}"
            draggable="false"
            transform="translate({{ node.x | round(2) }},{{ node.y | round(2) }})"
-           aria-label="{{ node.name }}">
+           aria-label="{{ node.name }}"
+           {% if centerId and node.id == centerId %}aria-current="page"{% endif %}>
           <image class="map-node-avatar"
                  href="{{ node.avatarUrl }}"
                  x="{{ node.imageX | round(2) }}" y="{{ node.imageY | round(2) }}"

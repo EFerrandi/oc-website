@@ -38,6 +38,26 @@ export function listRelationshipsForCharacter(db, characterId, { showNsfw }) {
   `).all({ characterId, showNsfw: showNsfw ? 1 : 0 }).map(shape);
 }
 
+/** Relationships touching a character, rating-filtered and enriched with safe avatar previews. */
+export function listRelationshipsForCharacterWithAvatars(db, characterId, { showNsfw }) {
+  const rows = listRelationshipsForCharacter(db, characterId, { showNsfw });
+  const cache = new Map();
+
+  const withAvatar = (character) => {
+    if (!cache.has(character.id)) {
+      cache.set(character.id, resolveAvatarForCharacterId(db, character.id, { showNsfw }));
+    }
+
+    return { ...character, avatar: cache.get(character.id) };
+  };
+
+  return rows.map((row) => ({
+    ...row,
+    from: withAvatar(row.from),
+    to: withAvatar(row.to),
+  }));
+}
+
 export function listAllRelationships(db, { showNsfw }) {
   return db.prepare(`
     ${SELECT_RELATIONSHIP}

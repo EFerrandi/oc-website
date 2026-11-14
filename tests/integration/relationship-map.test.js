@@ -64,6 +64,28 @@ function mapRegion(html, rating) {
   return next === -1 ? html.slice(start) : html.slice(start, next);
 }
 
+function mapEdges(region) {
+  return [...region.matchAll(/<g class="map-edge"([^>]*)>([\s\S]*?)<\/g>/g)].map(([, attrs, body]) => {
+    const fromId = attrs.match(/\bdata-from="(\d+)"/)?.[1];
+    const toId = attrs.match(/\bdata-to="(\d+)"/)?.[1];
+    const path = body.match(/\bd="M (-?[\d.]+) (-?[\d.]+) L (-?[\d.]+) (-?[\d.]+)"/);
+    assert.ok(fromId && toId && path, `expected a straight edge with endpoint IDs: ${body}`);
+    return {
+      fromId,
+      toId,
+      from: { x: Number(path[1]), y: Number(path[2]) },
+      to: { x: Number(path[3]), y: Number(path[4]) },
+    };
+  });
+}
+
+function segmentsCross(a, b) {
+  if ([a.fromId, a.toId].some((id) => id === b.fromId || id === b.toId)) return false;
+  const orient = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  return orient(a.from, a.to, b.from) * orient(a.from, a.to, b.to) < 0
+    && orient(b.from, b.to, a.from) * orient(b.from, b.to, a.to) < 0;
+}
+
 // T011 — guarantee G-1: nothing is rendered and then hidden.
 test('before opt-in the NSFW map region contains no nodes or edges at all', async (t) => {
   const { app } = withApp(t);
@@ -222,30 +244,72 @@ test('the SFW map ships literal coordinates rather than being computed in the br
   }
 });
 
+test('the global route renders a crossing-free planar K4 while preserving all relationships', async (t) => {
+  const { app, db, ids } = withApp(t);
+  const at = new Date().toISOString();
+  const extraId = db.prepare(
+    `INSERT INTO character
+       (name, slug, gender_id, short_description, terms_of_use,
+        can_regift, can_retrade, can_resell, artist_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 1, 0, 0, ?, ?, ?)`,
+  ).run('Dusk', 'dusk', ids.genderFemale, 'Dusk short description',
+    'Do not resell without permission.', ids.designer, at, at).lastInsertRowid;
+  const pairs = [
+    [ids.aria, ids.shadow],
+    [ids.aria, extraId],
+    [ids.brann, ids.shadow],
+    [ids.brann, extraId],
+    [ids.shadow, extraId],
+  ];
+  const addRelationship = db.prepare(
+    `INSERT INTO relationship
+       (from_character_id, to_character_id, label, is_nsfw, created_at, updated_at)
+     VALUES (?, ?, ?, 0, ?, ?)`,
+  );
+  for (const [index, [fromId, toId]] of pairs.entries()) {
+    addRelationship.run(fromId, toId, `planar relation ${index + 1}`, at, at);
+  }
+
+  const response = await get(app);
+  assert.equal(response.status, 200);
+  const region = mapRegion(response.text, 'sfw');
+  const edges = mapEdges(region);
+
+  assert.equal(mapItems(region, 'node').length, 4, 'all four K4 characters remain represented');
+  assert.equal(edges.length, 6, 'every K4 relationship remains represented');
+  assert.equal(edges.filter((a, i) => edges.slice(i + 1).some((b) => segmentsCross(a, b))).length, 0);
+});
+
 // T020 � edges reference real nodes, and paint beneath them.
 test('every edge joins two rendered nodes and all edges precede all nodes', async (t) => {
   const { app } = withApp(t);
 
-  const region = mapRegion((await get(app, { nsfw: true })).text, 'sfw');
-  const nodeIds = new Set(mapItems(region, 'node'));
+  const response = await get(app, { nsfw: true });
 
-  assert.ok(nodeIds.size > 0, 'no nodes were rendered');
+  for (const rating of ['sfw', 'nsfw']) {
+    const map = mapRegion(response.text, rating);
+    const nodeIds = new Set(mapItems(map, 'node'));
+    const froms = mapItems(map, 'from');
+    const tos = mapItems(map, 'to');
 
-  const froms = mapItems(region, 'from');
-  const tos = mapItems(region, 'to');
-  assert.ok(froms.length > 0, 'no edge carried data-from');
-  assert.equal(froms.length, tos.length, 'every edge needs both data-from and data-to');
+    assert.ok(nodeIds.size > 0, `the ${rating} map rendered no nodes`);
+    assert.ok(froms.length > 0, `the ${rating} map has no edges`);
+    assert.equal(froms.length, tos.length, `every ${rating} edge needs both endpoints`);
+    for (const id of [...froms, ...tos]) {
+      assert.ok(nodeIds.has(id), `${rating} edge endpoint ${id} has no matching data-node`);
+    }
 
-  for (const id of [...froms, ...tos]) {
-    assert.ok(nodeIds.has(id), `edge endpoint ${id} has no matching data-node`);
+    // Avatars must paint above the lines; SVG has no z-index.
+    assert.ok(
+      map.lastIndexOf('data-edge=') < map.indexOf('data-node='),
+      `a ${rating} node was emitted before an edge`,
+    );
+    assert.equal(
+      (map.match(/class="map-edge-label"/g) ?? []).length,
+      mapItems(map, 'edge').length,
+      `the ${rating} map must retain every relationship label`,
+    );
   }
-
-  // Avatars must paint above the lines, and SVG has no z-index: the only
-  // control is document order, so this ordering is load-bearing, not cosmetic.
-  assert.ok(
-    region.lastIndexOf('data-edge=') < region.indexOf('data-node='),
-    'a node was emitted before an edge, so lines will paint over the avatars',
-  );
 });
 
 // T021 � FR-005, Constitution III: navigable with no JavaScript.
@@ -293,6 +357,9 @@ test('each map is followed by a visually hidden list of its relationships', asyn
 test('the relationship map keeps its visual and keyboard focus hooks', () => {
   assert.match(css, /\.map-edge-label\s*\{/, 'edge labels need a shared, readable style');
   assert.match(css, /\.map-node:focus-visible/, 'focused avatar links need a visible node-specific ring');
+  assert.match(css, /\.relationship-map\.has-emphasis \.map-edge\.is-emphasized \.map-edge-line/, 'incident lines need a visible highlight');
+  assert.match(css, /\.relationship-map\.has-emphasis \.map-edge\.is-subdued \.map-edge-line\s*\{[^}]*opacity:\s*0\.[1-9]/s, 'unrelated lines must remain visible but subdued');
+  assert.doesNotMatch(css, /\.map-edge\.is-subdued[^}]*display:\s*none/, 'unrelated relationships must not be hidden');
   assert.match(mapTemplate, /class="visually-hidden map-text-equivalent"/, 'the accessible text equivalent must remain in the map markup');
   assert.match(css, /\.visually-hidden\s*\{[^}]*clip(?:-path)?:/s, 'the text equivalent must be clipped for visual hiding');
 });

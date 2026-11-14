@@ -136,6 +136,44 @@ function placeOnRing(order, cx, cy, radius) {
   return positions;
 }
 
+/** Place a profile character at the center and each related character around it. */
+function placeAroundCenter(nodeList, edgeList, centerId) {
+  const center = nodeList.find((node) => node.id === centerId);
+  const surrounding = nodeList.filter((node) => node.id !== centerId);
+  const positions = new Map([[centerId, { x: 0, y: 0 }]]);
+  if (!center || surrounding.length === 0) return positions;
+
+  const count = surrounding.length;
+  const separation = count > 1 ? Math.sin(Math.PI / count) : 1;
+  const maxNameWidth = Math.max(
+    ...nodeList.map((node) => Math.max(...wrapText(node.name, NAME_MAX_CHARS).map((line) => line.length)) * CHAR_WIDTH),
+  );
+  const maxLabelWidth = Math.max(
+    ...edgeList.map((edge) => Math.max(...wrapText(edge.label, LABEL_MAX_CHARS).map((line) => line.length)) * CHAR_WIDTH),
+    0,
+  );
+  const widestName = Math.max(...wrapText(center.name, NAME_MAX_CHARS).map((line) => line.length)) * CHAR_WIDTH;
+  const rootNameBottom = NODE_RADIUS + nameSpace(wrapText(center.name, NAME_MAX_CHARS).length);
+  const radius = Math.max(
+    220,
+    2 * (rootNameBottom + LINE_HEIGHT / 2 + 16),
+    maxLabelWidth / Math.max(separation, 0.01) + 32,
+    (maxNameWidth + NODE_GAP) / (2 * Math.max(separation, 0.01)),
+    (2 * NODE_RADIUS + NODE_GAP) / (2 * Math.max(separation, 0.01)),
+    widestName,
+  );
+
+  for (let index = 0; index < count; index += 1) {
+    const angle = -Math.PI / 2 + (2 * Math.PI * index) / count;
+    positions.set(surrounding[index].id, {
+      x: radius * Math.cos(angle),
+      y: radius * Math.sin(angle),
+    });
+  }
+
+  return positions;
+}
+
 /**
  * Exact crossing count for chords of a single circle (research R-004).
  *
@@ -189,8 +227,17 @@ export function countCrossings(edgeList, rank) {
  * further out, alternating sides. Direction is ignored when grouping, because
  * "Aria -> Brann" and "Brann -> Aria" are drawn between the same two avatars.
  */
-function assignCurveOffsets(edgeList) {
+function assignCurveOffsets(edgeList, scale = 1) {
   const seen = new Map();
+  const labelWidths = new Map();
+
+  for (const edge of edgeList) {
+    const key = edge.fromId < edge.toId
+      ? `${edge.fromId}:${edge.toId}`
+      : `${edge.toId}:${edge.fromId}`;
+    const widestLabel = Math.max(...wrapText(edge.label, LABEL_MAX_CHARS).map((line) => line.length)) * CHAR_WIDTH;
+    labelWidths.set(key, [...(labelWidths.get(key) ?? []), widestLabel]);
+  }
 
   return edgeList.map((edge) => {
     const key = edge.fromId < edge.toId
@@ -204,8 +251,117 @@ function assignCurveOffsets(edgeList) {
     const magnitude = Math.ceil(index / 2);
     const sign = index % 2 === 1 ? 1 : -1;
 
-    return { ...edge, curveOffset: index === 0 ? 0 : sign * magnitude * CURVE_STEP };
+    const curveOffset = index === 0 ? 0 : sign * magnitude * CURVE_STEP;
+    const widths = labelWidths.get(key);
+    const span = widths.reduce((total, width) => total + width, 0) + 12 * (widths.length - 1);
+    const before = widths.slice(0, index).reduce((total, width) => total + width + 12, 0);
+    return {
+      ...edge,
+      curveOffset: curveOffset * scale,
+      labelT: widths.length === 1 ? 0.5 : (before + widths[index] / 2) / span,
+    };
   });
+}
+
+function bezierPoint(from, control, to, t) {
+  const inverse = 1 - t;
+  return {
+    x: inverse ** 2 * from.x + 2 * inverse * t * control.x + t ** 2 * to.x,
+    y: inverse ** 2 * from.y + 2 * inverse * t * control.y + t ** 2 * to.y,
+  };
+}
+
+function expandForParallelLabels(nodeList, edgeList, positions, centerId) {
+  const groups = new Map();
+  for (const edge of edgeList) {
+    const key = edge.fromId < edge.toId
+      ? `${edge.fromId}:${edge.toId}`
+      : `${edge.toId}:${edge.fromId}`;
+    groups.set(key, [...(groups.get(key) ?? []), edge]);
+  }
+
+  let scale = 1;
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const { fromId, toId } = group[0];
+    const distance = Math.hypot(
+      positions.get(fromId).x - positions.get(toId).x,
+      positions.get(fromId).y - positions.get(toId).y,
+    );
+    const labelSpan = group.reduce(
+      (total, edge) => total + Math.max(...wrapText(edge.label, LABEL_MAX_CHARS).map((line) => line.length)) * CHAR_WIDTH,
+      12 * (group.length - 1),
+    );
+    scale = Math.max(scale, labelSpan / distance);
+  }
+
+  if (scale === 1) return;
+  const center = centerId === null
+    ? {
+      x: nodeList.reduce((total, node) => total + positions.get(node.id).x, 0) / nodeList.length,
+      y: nodeList.reduce((total, node) => total + positions.get(node.id).y, 0) / nodeList.length,
+    }
+    : positions.get(centerId);
+
+  for (const node of nodeList) {
+    const point = positions.get(node.id);
+    positions.set(node.id, {
+      x: center.x + (point.x - center.x) * scale,
+      y: center.y + (point.y - center.y) * scale,
+    });
+  }
+}
+
+function routeSegments(edge) {
+  const steps = edge.curveOffset === 0 ? 1 : 16;
+  const segments = [];
+  let previous = { x: edge.fromX, y: edge.fromY };
+
+  for (let index = 1; index <= steps; index += 1) {
+    const t = index / steps;
+    const inverse = 1 - t;
+    const point = {
+      x: inverse ** 2 * edge.fromX + 2 * inverse * t * edge.controlX + t ** 2 * edge.pathEndX,
+      y: inverse ** 2 * edge.fromY + 2 * inverse * t * edge.controlY + t ** 2 * edge.pathEndY,
+    };
+    segments.push([previous, point]);
+    previous = point;
+  }
+
+  return segments;
+}
+
+function segmentsCross(a, b, c, d) {
+  if (Math.max(a.x, b.x) < Math.min(c.x, d.x)
+    || Math.max(c.x, d.x) < Math.min(a.x, b.x)
+    || Math.max(a.y, b.y) < Math.min(c.y, d.y)
+    || Math.max(c.y, d.y) < Math.min(a.y, b.y)) return false;
+
+  const orientation = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  return orientation(a, b, c) * orientation(a, b, d) < 0
+    && orientation(c, d, a) * orientation(c, d, b) < 0;
+}
+
+function findNonIncidentPathCrossing(edgeList) {
+  const paths = edgeList.map((edge) => ({ edge, segments: routeSegments(edge) }));
+
+  for (let i = 0; i < paths.length; i += 1) {
+    for (let j = i + 1; j < paths.length; j += 1) {
+      const first = paths[i];
+      const second = paths[j];
+      if (first.edge.curveOffset === 0 && second.edge.curveOffset === 0) continue;
+      if ([first.edge.fromId, first.edge.toId]
+        .some((id) => id === second.edge.fromId || id === second.edge.toId)) continue;
+
+      for (const [a, b] of first.segments) {
+        for (const [c, d] of second.segments) {
+          if (segmentsCross(a, b, c, d)) return [first.edge, second.edge];
+        }
+      }
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -322,18 +478,18 @@ function findComponents(nodeList, adjacency) {
 /**
  * Candidate orderings for one component (research R-003).
  *
- * The naive ordering is ALWAYS included. That is what makes "never worse than
- * the obvious arrangement" (FR-012, invariant I-M4) true by construction
- * rather than by tuning: the selector can only move away from it by finding
- * something strictly better.
+ * The caller's input ordering is ALWAYS included. That makes the non-regression
+ * baseline true by construction: the selector can only move away from it after
+ * finding an arrangement with strictly fewer crossings.
  *
  * Depth-first pre-order is the one that matters most. On a tree it produces
  * nested chords, which is exactly a crossing-free circular drawing — that is
  * what delivers the achievable half of SC-003.
  */
-function candidateOrderings(members, adjacency, byId) {
+function candidateOrderings(members, inputOrdering, adjacency, byId) {
   const inComponent = new Set(members);
-  const naive = [...members];
+  const baseline = inputOrdering.filter((id) => inComponent.has(id));
+  const breadthFirst = [...members];
 
   const seed = [...members].sort((a, b) => compareNodes(byId.get(a), byId.get(b)))[0];
 
@@ -356,22 +512,7 @@ function candidateOrderings(members, adjacency, byId) {
     }
   }
 
-  const breadthFirst = [];
-  const visitedBfs = new Set([seed]);
-  const queue = [seed];
-
-  while (queue.length) {
-    const current = queue.shift();
-    breadthFirst.push(current);
-
-    for (const next of adjacency.get(current)) {
-      if (!inComponent.has(next) || visitedBfs.has(next)) continue;
-      visitedBfs.add(next);
-      queue.push(next);
-    }
-  }
-
-  return [naive, depthFirst, breadthFirst];
+  return [baseline, breadthFirst, depthFirst];
 }
 
 /** How many refinement sweeps to attempt. Fixed, so cost stays predictable. */
@@ -438,10 +579,10 @@ function rankOf(ordering) {
  * among the candidates, ties broken by candidate index so the earlier (and
  * more predictable) ordering wins (FR-012, FR-013).
  */
-function chooseOrdering(members, componentEdges, adjacency, byId) {
+function chooseOrdering(members, inputOrdering, componentEdges, adjacency, byId) {
   let best = null;
 
-  for (const candidate of candidateOrderings(members, adjacency, byId)) {
+  for (const candidate of candidateOrderings(members, inputOrdering, adjacency, byId)) {
     const refined = refineOrdering(candidate, componentEdges, adjacency);
 
     if (best === null || refined.crossings < best.crossings) {
@@ -460,7 +601,7 @@ function chooseOrdering(members, componentEdges, adjacency, byId) {
  * @param {Array<{id:number,fromId:number,toId:number,label:string}>} edges
  * @returns {{nodes:Array, edges:Array, width:number, height:number, crossings:number}}
  */
-export function layoutGraph(nodes, edges) {
+export function layoutGraph(nodes, edges, { centerId = null, planarPositions = null } = {}) {
   const known = new Set(nodes.map((n) => n.id));
 
   // An edge naming a character that is not on this map cannot be drawn. This
@@ -474,13 +615,18 @@ export function layoutGraph(nodes, edges) {
   }
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
+  const centered = centerId !== null && byId.has(centerId)
+    && drawable.every((edge) => edge.fromId === centerId || edge.toId === centerId);
+  const planar = !centered && planarPositions instanceof Map
+    && nodes.every((node) => planarPositions.has(node.id));
   const adjacency = buildAdjacency(nodes, drawable);
   const components = findComponents(nodes, adjacency);
 
-  const laidOut = components.map((members) => {
+  const laidOut = centered || planar ? [] : components.map((members) => {
     const membership = new Set(members);
     const componentEdges = drawable.filter((e) => membership.has(e.fromId));
-    const ordering = chooseOrdering(members, componentEdges, adjacency, byId);
+    const inputOrdering = nodes.filter((node) => membership.has(node.id)).map((node) => node.id);
+    const ordering = chooseOrdering(members, inputOrdering, componentEdges, adjacency, byId);
     const lineCounts = members.map((id) => wrapText(byId.get(id).name, NAME_MAX_CHARS));
     const widestName = Math.max(...lineCounts.map((lines) => Math.max(...lines.map((l) => l.length))));
     const tallestName = Math.max(...lineCounts.map((lines) => lines.length));
@@ -503,11 +649,15 @@ export function layoutGraph(nodes, edges) {
     .sort((a, b) => (b.ordering.length - a.ordering.length) || (a.index - b.index));
 
   const columns = Math.max(1, Math.ceil(Math.sqrt(packed.length)));
-  const positions = new Map();
+  const positions = centered
+    ? placeAroundCenter(nodes, drawable, centerId)
+    : planar
+      ? new Map(planarPositions)
+      : new Map();
 
   let rowTop = 0;
 
-  for (let start = 0; start < packed.length; start += columns) {
+  for (let start = 0; !centered && !planar && start < packed.length; start += columns) {
     const row = packed.slice(start, start + columns);
     const rowHeight = Math.max(...row.map((c) => c.cellHeight));
 
@@ -527,7 +677,9 @@ export function layoutGraph(nodes, edges) {
     rowTop += rowHeight;
   }
 
-  const crossings = laidOut.reduce((total, component) => total + component.crossings, 0);
+  expandForParallelLabels(nodes, drawable, positions, centered ? centerId : null);
+
+  const crossings = centered || planar ? 0 : laidOut.reduce((total, component) => total + component.crossings, 0);
 
   const placedNodes = nodes.map((node) => {
     const zoom = node.cropZoom ?? 1;
@@ -558,7 +710,7 @@ export function layoutGraph(nodes, edges) {
     };
   });
 
-  const placedEdges = assignCurveOffsets(drawable).map((edge) => {
+  const placeEdges = (curveScale) => assignCurveOffsets(drawable, curveScale).map((edge) => {
     const from = positions.get(edge.fromId);
     const to = positions.get(edge.toId);
 
@@ -568,7 +720,6 @@ export function layoutGraph(nodes, edges) {
     const geometry = forward
       ? edgeGeometry(from, to, edge.curveOffset)
       : edgeGeometry(to, from, edge.curveOffset);
-
     // A one-sided edge ends at the avatar rim so its arrowhead is not painted
     // over by the avatar; the direction is the curve's tangent at the end.
     let pathEndX = to.x;
@@ -583,6 +734,14 @@ export function layoutGraph(nodes, edges) {
         pathEndY = to.y - (dy / length) * (NODE_RADIUS + ARROW_GAP);
       }
     }
+    const labelStart = forward ? from : { x: pathEndX, y: pathEndY };
+    const labelEnd = forward ? { x: pathEndX, y: pathEndY } : from;
+    const labelPoint = bezierPoint(
+      labelStart,
+      { x: geometry.controlX, y: geometry.controlY },
+      labelEnd,
+      edge.labelT,
+    );
 
     return {
       ...edge,
@@ -594,10 +753,24 @@ export function layoutGraph(nodes, edges) {
       pathEndX,
       pathEndY,
       ...geometry,
+      labelX: labelPoint.x,
+      labelY: labelPoint.y,
     };
   });
+  let placedEdges = placeEdges(1);
 
-  return { crossings, ...fitToBox(placedNodes, placedEdges) };
+  if (planar && placedEdges.some((edge) => edge.curveOffset !== 0)) {
+    let crossing = findNonIncidentPathCrossing(placedEdges);
+    for (let attempt = 0; attempt < 48 && crossing; attempt += 1) {
+      placedEdges = placeEdges(2 ** -(attempt + 1));
+      crossing = findNonIncidentPathCrossing(placedEdges);
+    }
+    if (crossing) {
+      throw new Error(`Planar relationships ${crossing[0].id} and ${crossing[1].id} still cross after reducing parallel-edge offsets.`);
+    }
+  }
+
+  return { crossings, ...fitToBox(placedNodes, placedEdges, centered ? centerId : null) };
 }
 
 /**
@@ -608,7 +781,7 @@ export function layoutGraph(nodes, edges) {
  * the invariant hold unconditionally: a curve offset or a component packing
  * change cannot push something outside the frame without this seeing it.
  */
-function fitToBox(placedNodes, placedEdges) {
+function fitToBox(placedNodes, placedEdges, centerId = null) {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -633,8 +806,20 @@ function fitToBox(placedNodes, placedEdges) {
     maxY = Math.max(maxY, edge.labelY + halfHeight, edge.controlY);
   }
 
-  const shiftX = PADDING - minX;
-  const shiftY = PADDING - minY;
+  let width = maxX - minX + 2 * PADDING;
+  let height = maxY - minY + 2 * PADDING;
+  let shiftX = PADDING - minX;
+  let shiftY = PADDING - minY;
+
+  if (centerId !== null) {
+    const center = placedNodes.find((node) => node.id === centerId);
+    const halfWidth = Math.max(center.x - minX, maxX - center.x) + PADDING;
+    const halfHeight = Math.max(center.y - minY, maxY - center.y) + PADDING;
+    width = 2 * halfWidth;
+    height = 2 * halfHeight;
+    shiftX = width / 2 - center.x;
+    shiftY = height / 2 - center.y;
+  }
 
   return {
     nodes: placedNodes.map((node) => ({ ...node, x: node.x + shiftX, y: node.y + shiftY })),
@@ -651,7 +836,7 @@ function fitToBox(placedNodes, placedEdges) {
       controlY: edge.controlY + shiftY,
       labelY: edge.labelY + shiftY,
     })),
-    width: maxX - minX + 2 * PADDING,
-    height: maxY - minY + 2 * PADDING,
+    width,
+    height,
   };
 }

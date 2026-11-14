@@ -31,6 +31,34 @@ const profile = (app, { nsfw = false } = {}) => {
   return nsfw ? req.set('Cookie', NSFW_ON) : req;
 };
 
+test('the profile relationship diagram is server-rendered with centered links and a text equivalent', async (t) => {
+  const { app, ids } = withApp(t);
+  const html = (await profile(app)).text;
+  const sectionStart = html.indexOf('class="profile-relationships"');
+  const section = html.slice(sectionStart, html.indexOf('class="profile-stories"', sectionStart));
+
+  assert.ok(sectionStart >= 0, 'the profile relationships section is present');
+  assert.match(section, /<svg\b[^>]*class="relationship-map"/, 'the diagram is delivered in the HTML');
+  assert.match(section, new RegExp(`<a\\b[^>]*data-node="${ids.aria}"[^>]*data-center="1"`), 'Aria is the center node');
+  assert.match(section, new RegExp(`<a\\b[^>]*data-node="${ids.brann}"[^>]*href="/characters/brann"`), 'Brann links to his profile');
+  assert.equal([...section.matchAll(/class="map-node(?:\\s|")/g)].length, 2, 'only Aria and her visible connection are nodes');
+  assert.equal([...section.matchAll(/class="map-edge"/g)].length, 1, 'the SFW relationship is drawn');
+  assert.ok(section.includes('childhood friends'), 'the relationship label is visible');
+  assert.ok(section.includes('map-text-equivalent'), 'the diagram has a server-rendered text equivalent');
+  assert.match(section, new RegExp(`/media/${ids.imageSfwA}`), 'the center avatar uses the gated preview URL');
+});
+
+test('a profile with no visible relationships renders the explicit diagram empty state', async (t) => {
+  const { app } = withApp(t);
+  const html = (await request(app).get('/characters/shadow')).text;
+  const sectionStart = html.indexOf('class="profile-relationships"');
+  const section = html.slice(sectionStart, html.indexOf('class="profile-stories"', sectionStart));
+
+  assert.ok(sectionStart >= 0);
+  assert.doesNotMatch(section, /<svg\b[^>]*class="relationship-map"/);
+  assert.match(section, /No relationships to show at the current content setting\./);
+});
+
 // T057 — FR-042, SC-015, Constitution I.
 test('a non-viewable story contributes neither its title nor any of its body', async (t) => {
   const { app } = withApp(t);

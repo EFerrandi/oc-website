@@ -5,6 +5,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { countCrossings, layoutGraph } from '../../src/lib/graph-layout.js';
+import { findPlanarPositions } from '../../src/lib/planar-layout.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const sourceFile = path.resolve(here, '../../src/lib/graph-layout.js');
@@ -134,6 +135,26 @@ test('a single character with no relationships still lays out', () => {
   assert.ok(Number.isFinite(result.nodes[0].x) && Number.isFinite(result.nodes[0].y));
 });
 
+test('a profile layout centers its character and arranges every relationship around it', () => {
+  const inputNodes = nodes('Aria', 'Brann', 'Cass');
+  const inputEdges = [
+    { id: 1, fromId: 1, toId: 2, label: 'childhood friends' },
+    { id: 2, fromId: 1, toId: 2, label: 'colleagues' },
+    { id: 3, fromId: 3, toId: 1, label: 'siblings', isOneSided: true },
+  ];
+
+  const result = layoutGraph(inputNodes, inputEdges, { centerId: 1 });
+  const center = result.nodes.find((node) => node.id === 1);
+  const others = result.nodes.filter((node) => node.id !== 1);
+
+  assert.equal(center.x, result.width / 2);
+  assert.equal(center.y, result.height / 2);
+  assert.equal(others.length, 2);
+  assert.ok(others.every((node) => Math.hypot(node.x - center.x, node.y - center.y) > 2 * center.r));
+  assert.equal(result.edges.length, 3, 'parallel and one-sided relationships remain distinct');
+  assert.equal(result.crossings, 0, 'all visible relationships share the profile character');
+});
+
 test('every node carries finite coordinates and keeps its identity fields', () => {
   const input = nodes('Aria', 'Brann', 'Cass');
   const result = layoutGraph(input, edges([1, 2], [2, 3]));
@@ -168,6 +189,141 @@ test('crossings are counted exactly on a circular arrangement', () => {
   assert.equal(countCrossings(edges([1, 3], [2, 9]), ring), 0, 'an edge leaving the ring is not counted');
 });
 
+test('a planar K4 layout has zero crossings even though the graph is not outerplanar', () => {
+  const graphNodes = nodes('A', 'B', 'C', 'D');
+  const graphEdges = edges([1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]);
+  const planarPositions = findPlanarPositions(graphNodes, graphEdges);
+
+  assert.ok(planarPositions, 'K4 has a planar embedding');
+  const result = layoutGraph(graphNodes, graphEdges, { planarPositions });
+  assert.equal(result.crossings, 0);
+  assert.equal(result.edges.length, graphEdges.length);
+});
+
+test('disconnected planar components with parallel relationships retain a zero-crossing layout', () => {
+  const graphNodes = nodes('A', 'B', 'C', 'D', 'E', 'F', 'G');
+  const graphEdges = edges(
+    [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4],
+    [5, 6], [6, 7], [7, 5], [1, 2],
+  );
+  const planarPositions = findPlanarPositions(graphNodes, graphEdges);
+
+  assert.ok(planarPositions, 'both disconnected components are planar');
+  const result = layoutGraph(graphNodes, graphEdges, { planarPositions });
+
+  assert.equal(result.crossings, 0);
+  assert.equal(result.edges.length, graphEdges.length, 'parallel relationship records are not dropped');
+});
+
+test('parallel routes do not cross unrelated edges in a planar drawing', () => {
+  const graphNodes = nodes('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I');
+  const graphEdges = edges(
+    [1, 2], [2, 3], [3, 1],
+    [4, 1], [4, 2], [4, 3],
+    [5, 4], [5, 1], [5, 2],
+    [6, 5], [6, 1], [6, 2],
+    [7, 6], [7, 5], [7, 1],
+    [8, 7], [8, 5], [8, 1],
+    [9, 6], [9, 1], [9, 2],
+    [5, 1], [5, 1], [7, 5], [8, 5], [8, 5],
+  );
+  const planarPositions = findPlanarPositions(graphNodes, graphEdges);
+  assert.ok(planarPositions, 'the simple graph has a planar embedding');
+
+  const result = layoutGraph(graphNodes, graphEdges, { planarPositions });
+  const segments = result.edges.map((edge) => {
+    const points = [];
+    for (let index = 0; index <= 64; index += 1) {
+      const t = index / 64;
+      const inverse = 1 - t;
+      points.push({
+        x: inverse ** 2 * edge.fromX + 2 * inverse * t * edge.controlX + t ** 2 * edge.pathEndX,
+        y: inverse ** 2 * edge.fromY + 2 * inverse * t * edge.controlY + t ** 2 * edge.pathEndY,
+      });
+    }
+    return { edge, points };
+  });
+  const orientation = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  const intersects = (a, b, c, d) => orientation(a, b, c) * orientation(a, b, d) < 0
+    && orientation(c, d, a) * orientation(c, d, b) < 0;
+
+  for (let first = 0; first < segments.length; first += 1) {
+    for (let second = first + 1; second < segments.length; second += 1) {
+      const a = segments[first];
+      const b = segments[second];
+      if ([a.edge.fromId, a.edge.toId].some((id) => id === b.edge.fromId || id === b.edge.toId)) continue;
+
+      for (let aIndex = 0; aIndex < a.points.length - 1; aIndex += 1) {
+        for (let bIndex = 0; bIndex < b.points.length - 1; bIndex += 1) {
+          assert.equal(
+            intersects(a.points[aIndex], a.points[aIndex + 1], b.points[bIndex], b.points[bIndex + 1]),
+            false,
+            `routed relationships ${a.edge.id} and ${b.edge.id} cross`,
+          );
+        }
+      }
+    }
+  }
+
+  assert.equal(result.crossings, 0);
+  assert.deepEqual(result.edges.map((edge) => edge.labelLines.join(' ')), graphEdges.map((edge) => edge.label));
+  assert.ok(result.edges.every((edge) => edge.labelX >= 0 && edge.labelX <= result.width
+    && edge.labelY >= 0 && edge.labelY <= result.height), 'all complete relationship labels remain in bounds');
+
+  const parallelEdges = new Map();
+  for (const edge of result.edges) {
+    const key = edge.fromId < edge.toId ? `${edge.fromId}:${edge.toId}` : `${edge.toId}:${edge.fromId}`;
+    parallelEdges.set(key, [...(parallelEdges.get(key) ?? []), edge]);
+  }
+  for (const group of parallelEdges.values()) {
+    for (let first = 0; first < group.length; first += 1) {
+      for (let second = first + 1; second < group.length; second += 1) {
+        const a = group[first];
+        const b = group[second];
+        const widthA = Math.max(...a.labelLines.map((line) => line.length)) * 9.2;
+        const widthB = Math.max(...b.labelLines.map((line) => line.length)) * 9.2;
+        const heightA = a.labelLines.length * 20;
+        const heightB = b.labelLines.length * 20;
+        assert.ok(
+          Math.abs(a.labelX - b.labelX) >= (widthA + widthB) / 2
+            || Math.abs(a.labelY - b.labelY) >= (heightA + heightB) / 2,
+          `parallel labels ${a.label} and ${b.label} overlap`,
+        );
+      }
+    }
+  }
+});
+
+test('a non-planar K3,3 layout does not exceed its input-order baseline', () => {
+  const graphNodes = nodes('A', 'B', 'C', 'D', 'E', 'F');
+  const graphEdges = edges(
+    [1, 4], [1, 5], [1, 6],
+    [2, 4], [2, 5], [2, 6],
+    [3, 4], [3, 5], [3, 6],
+  );
+  const inputOrder = new Map(graphNodes.map((node, index) => [node.id, index]));
+
+  assert.ok(layoutGraph(graphNodes, graphEdges).crossings <= countCrossings(graphEdges, inputOrder));
+});
+
+test('a non-planar graph keeps the caller input ordering as a crossing baseline', () => {
+  const graphNodes = nodes('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J');
+  const graphEdges = edges(
+    [1, 2], [1, 7], [1, 9], [1, 10],
+    [2, 3], [2, 4], [2, 5], [2, 10],
+    [3, 4], [3, 7], [3, 8], [3, 9],
+    [4, 5], [4, 6], [4, 7], [4, 9],
+    [5, 8], [6, 7], [6, 9], [8, 9],
+  );
+  const callerOrder = new Map(graphNodes.map((node, index) => [node.id, index]));
+
+  assert.equal(findPlanarPositions(graphNodes, graphEdges), null, 'the fixture exercises non-planar fallback');
+  assert.ok(
+    layoutGraph(graphNodes, graphEdges).crossings <= countCrossings(graphEdges, callerOrder),
+    'the selected fallback must never exceed the original caller-order crossing count',
+  );
+});
+
 test('parallel relationships between the same pair are separated', () => {
   const result = layoutGraph(
     nodes('Aria', 'Brann'),
@@ -185,6 +341,49 @@ test('parallel relationships between the same pair are separated', () => {
   // Distinct offsets are only useful if they move the labels apart.
   const anchors = result.edges.map((e) => `${e.labelX.toFixed(3)},${e.labelY.toFixed(3)}`);
   assert.equal(new Set(anchors).size, 3, 'each parallel edge gets its own label anchor (FR-003)');
+});
+
+test('long parallel relationship labels stay on their routes and do not overlap', () => {
+  const graphNodes = nodes('Aria', 'Brann');
+  const labels = [
+    'They have known each other since childhood and frequently travel together',
+    'They become allies after a long and difficult journey across the country',
+    'A trusted friendship built over years of sharing dangerous adventures',
+  ];
+  const result = layoutGraph(graphNodes, labels.map((label, index) => ({
+    id: index + 1,
+    fromId: 1,
+    toId: 2,
+    label,
+  })));
+
+  for (const edge of result.edges) {
+    const inverse = 1 - edge.labelT;
+    const point = {
+      x: inverse ** 2 * edge.fromX + 2 * inverse * edge.labelT * edge.controlX
+        + edge.labelT ** 2 * edge.pathEndX,
+      y: inverse ** 2 * edge.fromY + 2 * inverse * edge.labelT * edge.controlY
+        + edge.labelT ** 2 * edge.pathEndY,
+    };
+    assert.ok(Math.hypot(edge.labelX - point.x, edge.labelY - point.y) < 0.001, `${edge.label} label is on its curve`);
+    assert.equal(edge.labelLines.join(' '), edge.label, 'label text remains complete');
+  }
+
+  for (let first = 0; first < result.edges.length; first += 1) {
+    for (let second = first + 1; second < result.edges.length; second += 1) {
+      const a = result.edges[first];
+      const b = result.edges[second];
+      const widthA = Math.max(...a.labelLines.map((line) => line.length)) * 9.2;
+      const widthB = Math.max(...b.labelLines.map((line) => line.length)) * 9.2;
+      const heightA = a.labelLines.length * 20;
+      const heightB = b.labelLines.length * 20;
+      assert.ok(
+        Math.abs(a.labelX - b.labelX) >= (widthA + widthB) / 2
+          || Math.abs(a.labelY - b.labelY) >= (heightA + heightB) / 2,
+        `${a.label} and ${b.label} labels overlap`,
+      );
+    }
+  }
 });
 
 test('a straight edge anchors its label at the midpoint of the two nodes', () => {
