@@ -22,6 +22,8 @@ test('profile diagrams omit NSFW relationship nodes, labels, and avatar URLs unt
   assert.ok(!hidden.text.includes('lovers'), 'the excluded relationship label must not reach the response');
   assert.ok(!hidden.text.includes(`/characters/shadow`), 'the excluded profile link must not reach the response');
   assert.ok(!hidden.text.includes(`/media/${ids.imageNsfwShadow}`), 'the excluded avatar ID must not reach the response');
+  assert.match(hidden.text, new RegExp(`data-node="${ids.aria}"\\s+data-neighbor-count="1"`),
+    'Aria must be sized using only the visible SFW neighbor');
 
   const visible = await request(app).get('/characters/aria').set('Cookie', NSFW_ON);
   assert.equal(visible.status, 200);
@@ -29,4 +31,6 @@ test('profile diagrams omit NSFW relationship nodes, labels, and avatar URLs unt
   assert.ok(visible.text.includes('lovers'), 'the relationship label appears after opt-in');
   assert.ok(visible.text.includes(`/characters/shadow`), 'the related-character profile link appears after opt-in');
   assert.ok(visible.text.includes(`/media/${ids.imageNsfwShadow}`), 'the avatar preview appears after opt-in');
+  assert.match(visible.text, new RegExp(`data-node="${ids.aria}"\\s+data-neighbor-count="2"`),
+    'Aria must include the newly visible NSFW neighbor after opt-in');
 });

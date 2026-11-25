@@ -24,6 +24,10 @@
   --danger: #ff7b7b;
   --success: #8ee0b0;
   --warning: #f4cb74;
+  --map-surface: #092d35;
+  --map-border: #65858b;
+  --map-gold: #e3c778;
+  --map-text: #f2e8c8;
 
   --radius: 10px;
   --radius-sm: 6px;
@@ -372,13 +376,19 @@ textarea { min-height: 8rem; resize: vertical; }
 
 .relationship-map-frame {
   max-width: 100%;
-  overflow-x: auto;
+  overflow: hidden;
   border-radius: var(--radius);
+  background: var(--map-surface);
 }
 
 .profile-relationship-map-frame {
   margin-block: var(--space-3) var(--space-5);
-  background: var(--surface-2);
+}
+
+.relationship-map-viewport {
+  position: relative;
+  width: 100%;
+  min-width: 100%;
 }
 
 /*
@@ -387,24 +397,36 @@ textarea { min-height: 8rem; resize: vertical; }
  */
 .relationship-map {
   display: block;
-  width: auto;
-  min-width: 100%;
-  max-width: none;
+  width: 100%;
   height: auto;
-  /* The face handle owns touch dragging; empty space scrolls the map frame/page. */
-  touch-action: auto;
+  max-height: 75vh;
+  margin-inline: auto;
+  background: var(--map-surface);
+  /* Horizontal one-finger drags pan the map; vertical ones still scroll the page. */
+  touch-action: pan-y;
+  cursor: grab;
 }
+
+.relationship-map.is-panning { cursor: grabbing; }
 
 .map-node { user-select: none; -webkit-user-drag: none; }
 .map-node-face { touch-action: none; cursor: grab; pointer-events: all; }
 
-.map-arrow path { fill: var(--brand-medium); }
+.map-arrow path { fill: var(--map-gold); }
 
 .map-edge-line {
   fill: none;
-  stroke: var(--border);
+  stroke: var(--map-gold);
   stroke-width: 2;
 }
+
+.map-edge-link { cursor: pointer; }
+.map-edge-link:focus-visible .map-edge-line,
+.map-edge.is-selected .map-edge-line {
+  stroke: #fff1b7;
+  stroke-width: 4;
+}
+.map-edge.is-selected .map-edge-label { fill: #fff1b7; font-weight: 700; }
 
 .relationship-direction {
   color: var(--muted);
@@ -412,56 +434,120 @@ textarea { min-height: 8rem; resize: vertical; }
 }
 
 .map-edge-label {
-  fill: var(--muted);
+  fill: var(--map-text);
   font-size: 16px;
   /* The stroke is painted first and acts as a backdrop, so a label stays
      legible where it crosses another line. paint-order is what makes the
      stroke sit behind the glyphs instead of thickening them. */
-  stroke: var(--surface-2);
+  stroke: var(--map-surface);
   stroke-width: 4px;
   paint-order: stroke fill;
   pointer-events: none;
 }
 
-.relationship-map.has-emphasis .map-edge.is-emphasized .map-edge-line {
-  stroke: var(--accent);
+.relationship-map.has-focus .map-edge.is-focus .map-edge-line {
+  stroke: #fff1b7;
   stroke-width: 4;
 }
 
-.relationship-map.has-emphasis .map-edge.is-emphasized .map-edge-label {
-  fill: var(--accent);
+.relationship-map.has-focus .map-edge.is-focus .map-edge-label {
+  fill: #fff1b7;
   font-weight: 700;
 }
 
-.relationship-map.has-emphasis .map-edge.is-subdued .map-edge-line { opacity: 0.4; }
-.relationship-map.has-emphasis .map-edge.is-subdued .map-edge-label { opacity: 0.55; }
+.relationship-map.has-focus .is-dimmed {
+  filter: grayscale(1);
+  opacity: 0.35;
+}
 
 .map-node-ring {
   fill: none;
-  stroke: var(--border);
+  stroke: var(--map-border);
   stroke-width: 2;
 }
 
 .map-node:hover .map-node-ring,
 .map-node:focus-visible .map-node-ring {
-  stroke: var(--accent);
+  stroke: var(--map-gold);
   stroke-width: 3;
 }
 
 .map-node-avatar { pointer-events: none; }
 
 .map-node-name {
-  fill: var(--text);
+  fill: var(--map-text);
   font-size: 16px;
   font-weight: 600;
-  stroke: var(--surface-2);
+  stroke: var(--map-surface);
   stroke-width: 4px;
   paint-order: stroke fill;
   pointer-events: none;
 }
 
+.relationship-map.labels-hidden .map-node-name { visibility: hidden; }
+.relationship-map.labels-hidden.has-focus .map-node.is-focus .map-node-name { visibility: visible; }
+
+.map-controls {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  color: var(--map-text);
+  background: rgb(5 24 30 / 0.94);
+  border: 1px solid var(--map-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-2);
+}
+.map-controls[hidden] { display: none; }
+.map-controls button,
+.map-label-toggle {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.55rem;
+  color: var(--map-text);
+  background: #123d45;
+  border: 1px solid var(--map-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+.map-controls button { cursor: pointer; }
+.map-controls button:hover:not(:disabled) { border-color: var(--map-gold); }
+.map-controls button:disabled { cursor: not-allowed; opacity: 0.65; }
+.map-label-toggle { display: inline-flex; align-items: center; gap: var(--space-1); }
+.map-label-toggle input { accent-color: var(--map-gold); }
+.map-status { margin: 0; }
+.map-status:empty { display: none; }
+.map-details {
+  margin: 0;
+  padding: var(--space-3) var(--space-5) var(--space-3) 2.5rem;
+  color: var(--map-text);
+  background: var(--map-surface);
+  border-top: 1px solid var(--map-border);
+}
+.map-details li { padding: var(--space-1) var(--space-2); scroll-margin: var(--space-5); }
+.map-details li.is-selected { background: #174751; border-radius: var(--radius-sm); }
+.map-details a { color: var(--map-gold); }
+.map-details li:focus { outline: 2px solid var(--map-gold); outline-offset: 1px; }
+.relationship-map-frame:fullscreen {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background: var(--map-surface);
+}
+.relationship-map-frame:fullscreen .relationship-map { margin-inline: auto; max-height: 100vh; }
+
+@media (max-width: 640px) {
+  .map-controls { right: var(--space-1); bottom: var(--space-1); gap: var(--space-1); padding: var(--space-1); }
+  .map-controls button, .map-label-toggle { min-height: 2rem; padding: 0.25rem 0.4rem; font-size: 0.8rem; }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .map-node-ring { transition: stroke 120ms ease; }
+  .relationship-map .map-node,
+  .relationship-map .map-edge { transition: opacity 120ms ease, filter 120ms ease; }
 }
 
 /* ---------- Relationship map: drag affordances ---------- */
@@ -870,16 +956,16 @@ select option { background: var(--surface-2); color: var(--text); }
 
 .relationship-card { min-width: 0; }
 .relationship-map-frame {
-  border: 1px solid var(--border);
-  box-shadow: inset 0 0 0 1px rgb(62 78 180 / 0.16);
+  border: 1px solid var(--map-border);
+  box-shadow: inset 0 0 0 1px rgb(227 199 120 / 0.12);
 }
-.map-edge-line { stroke: var(--brand-medium); }
-.map-edge-label { fill: var(--brand-light); }
-.map-node-ring { stroke: var(--border-strong); }
+.map-edge-line { stroke: var(--map-gold); }
+.map-edge-label { fill: var(--map-text); }
+.map-node-ring { stroke: var(--map-border); }
 .map-node:hover .map-node-ring,
 .map-node:focus-visible .map-node-ring,
-.map-node.is-dragging .map-node-ring { stroke: var(--brand-light); }
-.map-node:focus-visible .map-node-name { fill: var(--brand-light); }
+.map-node.is-dragging .map-node-ring { stroke: var(--map-gold); }
+.map-node:focus-visible .map-node-name { fill: var(--map-gold); }
 .map-help kbd {
   color: var(--text);
   border-color: var(--border-strong);

@@ -10,88 +10,101 @@
     * `.map-edges` is emitted before `.map-nodes`, because SVG has no z-index
       and paints in document order — reversing them would draw lines across
       the avatars.
-    * the text equivalent follows the <svg>, so assistive technology meets it
-      in the same place as the drawing it replaces.
+    * the visible relationship details follow the <svg>, keeping the drawing
+      and its complete text equivalent together in document order.
 #}
 
 {% macro relationshipMap(layout, rating, title, centerId) %}
   {% set mapId = "map-" + rating %}
 
-  <svg class="relationship-map"
-       width="{{ layout.width | round(2) }}"
-       height="{{ layout.height | round(2) }}"
-       viewBox="0 0 {{ layout.width | round(2) }} {{ layout.height | round(2) }}"
-       role="group"
-       aria-labelledby="{{ mapId }}-title"
-       data-map="{{ rating }}">
-    <title id="{{ mapId }}-title">{{ title }}</title>
+  <div class="relationship-map-viewport">
+    <svg class="relationship-map"
+         style="max-width: {{ layout.width | round(2) }}px; aspect-ratio: {{ layout.width | round(2) }} / {{ layout.height | round(2) }}"
+         viewBox="0 0 {{ layout.width | round(2) }} {{ layout.height | round(2) }}"
+         role="group"
+         aria-labelledby="{{ mapId }}-title"
+         data-map="{{ rating }}">
+      <title id="{{ mapId }}-title">{{ title }}</title>
 
-    <defs>
-      {# One clip path serves every avatar: it is resolved in each node's own
-         user space, which the node's translate has already moved into place. #}
-      <clipPath id="{{ mapId }}-clip">
-        <circle cx="0" cy="0" r="{{ layout.nodes[0].r if layout.nodes.length else 0 }}"></circle>
-      </clipPath>
-      {# Arrowhead for one-sided relationships; `orient=auto` turns it to
-         follow the end of whichever curve it is attached to. #}
+      <defs>
+        {% for node in layout.nodes %}
+          <clipPath id="{{ mapId }}-clip-{{ node.id }}">
+            <circle cx="0" cy="0" r="{{ node.r }}"></circle>
+          </clipPath>
+        {% endfor %}
       <marker id="{{ mapId }}-arrow" class="map-arrow"
               viewBox="0 0 10 10" refX="9" refY="5"
               markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16"
-              orient="auto">
+              orient="auto-start-reverse">
         <path d="M 0 0 L 10 5 L 0 10 z"></path>
       </marker>
-    </defs>
+      </defs>
 
-    <g class="map-edges">
-      {% for edge in layout.edges %}
-        <g class="map-edge" data-edge="{{ edge.id }}" data-from="{{ edge.fromId }}" data-to="{{ edge.toId }}"{% if edge.isOneSided %} data-one-sided="1"{% endif %}>
-          <path class="map-edge-line"{% if edge.isOneSided %} marker-end="url(#{{ mapId }}-arrow)"{% endif %}
-                d="M {{ edge.fromX | round(2) }} {{ edge.fromY | round(2) }}{% if edge.curveOffset %} Q {{ edge.controlX | round(2) }} {{ edge.controlY | round(2) }}{% else %} L{% endif %} {{ edge.pathEndX | round(2) }} {{ edge.pathEndY | round(2) }}"></path>
-          <text class="map-edge-label"
-                x="{{ edge.labelX | round(2) }}"
-                y="{{ edge.labelY | round(2) }}"
-                text-anchor="middle"
-                dominant-baseline="middle">{% for line in edge.labelLines %}<tspan x="{{ edge.labelX | round(2) }}" dy="{{ (-(edge.labelLines.length - 1) * 10) if loop.first else 20 }}">{{ line }}</tspan>{% endfor %}</text>
-        </g>
-      {% endfor %}
-    </g>
+      <g class="map-edges">
+        {% for edge in layout.edges %}
+          <a class="map-edge-link" href="#{{ mapId }}-relationship-{{ edge.id }}"
+             data-relationship-link="{{ edge.id }}"
+             aria-label="{{ edge.fromName }} {{ 'to' if edge.isOneSided else 'and' }} {{ edge.toName }}: {{ edge.label }}">
+            <g class="map-edge" data-edge="{{ edge.id }}" data-from="{{ edge.fromId }}" data-to="{{ edge.toId }}" data-label-t="{{ edge.labelT }}"{% if edge.isOneSided %} data-one-sided="1"{% endif %}>
+              <path class="map-edge-line"{% if edge.isOneSided %} marker-end="url(#{{ mapId }}-arrow)"{% else %} marker-start="url(#{{ mapId }}-arrow)" marker-end="url(#{{ mapId }}-arrow)"{% endif %}
+                    d="M {{ edge.pathStartX | round(2) }} {{ edge.pathStartY | round(2) }}{% if edge.curveOffset %} Q {{ edge.controlX | round(2) }} {{ edge.controlY | round(2) }}{% else %} L{% endif %} {{ edge.pathEndX | round(2) }} {{ edge.pathEndY | round(2) }}"></path>
+              <text class="map-edge-label"
+                    x="{{ edge.labelX | round(2) }}"
+                    y="{{ edge.labelY | round(2) }}"
+                    text-anchor="middle"
+                    dominant-baseline="middle">{% for line in edge.labelLines %}<tspan x="{{ edge.labelX | round(2) }}" dy="{{ (-(edge.labelLines.length - 1) * 10) if loop.first else 20 }}">{{ line }}</tspan>{% endfor %}</text>
+            </g>
+          </a>
+        {% endfor %}
+      </g>
 
-    <g class="map-nodes">
-      {% for node in layout.nodes %}
-        <a class="map-node"
-           data-node="{{ node.id }}"
-           {% if centerId and node.id == centerId %}data-center="1"{% endif %}
-           data-crop-zoom="{{ node.cropZoom }}"
-           href="/characters/{{ node.slug }}"
-           draggable="false"
-           transform="translate({{ node.x | round(2) }},{{ node.y | round(2) }})"
-           aria-label="{{ node.name }}"
-           {% if centerId and node.id == centerId %}aria-current="page"{% endif %}>
-          <image class="map-node-avatar"
-                 href="{{ node.avatarUrl }}"
-                 x="{{ node.imageX | round(2) }}" y="{{ node.imageY | round(2) }}"
-                 width="{{ node.imageWidth | round(2) }}" height="{{ node.imageHeight | round(2) }}"
-                 preserveAspectRatio="none"
-                 clip-path="url(#{{ mapId }}-clip)"
-                 aria-hidden="true"></image>
-          <circle class="map-node-face"
-                  data-drag-handle="face"
-                  cx="0" cy="0" r="{{ node.r }}"
-                  fill="transparent"></circle>
-          <circle class="map-node-ring" cx="0" cy="0" r="{{ node.r }}"></circle>
-          <text class="map-node-name"
-                x="0" y="{{ node.r + 20 }}"
-                text-anchor="middle">{% for line in node.nameLines %}<tspan x="0" dy="{{ 0 if loop.first else 20 }}">{{ line }}</tspan>{% endfor %}</text>
-        </a>
-      {% endfor %}
-    </g>
-  </svg>
+      <g class="map-nodes">
+        {% for node in layout.nodes %}
+          <a class="map-node"
+             data-node="{{ node.id }}"
+             data-neighbor-count="{{ node.visibleNeighborCount }}"
+             {% if centerId and node.id == centerId %}data-center="1"{% endif %}
+             data-crop-zoom="{{ node.cropZoom }}"
+             href="/characters/{{ node.slug }}"
+             draggable="false"
+             transform="translate({{ node.x | round(2) }},{{ node.y | round(2) }})"
+             aria-label="{{ node.name }}"
+             {% if centerId and node.id == centerId %}aria-current="page"{% endif %}>
+            <image class="map-node-avatar"
+                   href="{{ node.avatarUrl }}"
+                   x="{{ node.imageX | round(2) }}" y="{{ node.imageY | round(2) }}"
+                   width="{{ node.imageWidth | round(2) }}" height="{{ node.imageHeight | round(2) }}"
+                   preserveAspectRatio="none"
+                   clip-path="url(#{{ mapId }}-clip-{{ node.id }})"
+                   aria-hidden="true"></image>
+            <circle class="map-node-face"
+                    data-drag-handle="face"
+                    cx="0" cy="0" r="{{ node.r }}"
+                    fill="transparent"></circle>
+            <circle class="map-node-ring" cx="0" cy="0" r="{{ node.r }}"></circle>
+            <text class="map-node-name"
+                  x="0" y="{{ node.r + 20 }}"
+                  text-anchor="middle">{% for line in node.nameLines %}<tspan x="0" dy="{{ 0 if loop.first else 20 }}">{{ line }}</tspan>{% endfor %}</text>
+          </a>
+        {% endfor %}
+      </g>
+    </svg>
 
-  {# FR-021a. `visually-hidden` clips rather than hiding: `display:none` would
-     remove this from the accessibility tree along with the screen. #}
-  <ul class="visually-hidden map-text-equivalent">
+    <div class="map-controls" role="group" aria-label="Relationship map controls" hidden>
+      <label class="map-label-toggle"><input type="checkbox" data-map-labels checked> Labels</label>
+      <button type="button" data-map-zoom-in aria-label="Zoom in">+</button>
+      <button type="button" data-map-zoom-out aria-label="Zoom out">−</button>
+      <button type="button" data-map-reset aria-label="Reset view">Reset</button>
+      <button type="button" data-map-fullscreen aria-label="Enter fullscreen">Fullscreen</button>
+    </div>
+    <p class="map-status" role="status" aria-live="polite"></p>
+  </div>
+
+  <ol class="map-details" aria-label="Relationship details">
     {% for edge in layout.edges %}
-      <li>{% if edge.isOneSided %}{{ edge.fromName }} → {{ edge.label }} → {{ edge.toName }}{% else %}{{ edge.fromName }} — {{ edge.label }} — {{ edge.toName }}{% endif %}</li>
+      <li id="{{ mapId }}-relationship-{{ edge.id }}" tabindex="-1">
+        {% if edge.isOneSided %}<a href="/characters/{{ edge.fromSlug }}">{{ edge.fromName }}</a> → {{ edge.label }} → <a href="/characters/{{ edge.toSlug }}">{{ edge.toName }}</a>{% else %}<a href="/characters/{{ edge.fromSlug }}">{{ edge.fromName }}</a> — {{ edge.label }} — <a href="/characters/{{ edge.toSlug }}">{{ edge.toName }}</a>{% endif %}
+      </li>
     {% endfor %}
-  </ul>
+  </ol>
 {% endmacro %}

@@ -89,11 +89,11 @@ test('anything that can overflow is allowed to scroll within itself', () => {
   );
 });
 
-test('dense relationship maps scroll inside their own frame without widening the page', () => {
+test('relationship maps fit inside their own frame without widening the page', () => {
   assert.match(
     css,
-    /\.relationship-map-frame\s*\{[^}]*max-width:\s*100%[^}]*overflow-x:\s*auto/s,
-    'relationship map scrolling must be confined to a frame within the viewport',
+    /\.relationship-map-frame\s*\{[^}]*max-width:\s*100%[^}]*overflow:\s*hidden/s,
+    'relationship map must be confined to a frame within the viewport',
   );
   assert.match(css, /\.relationship-card\s*\{[^}]*min-width:\s*0/s, 'map cards must shrink to the available page width');
   assert.match(css, /\.relationship-cards\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s, 'relationship areas must remain in one column');
@@ -309,9 +309,8 @@ test('the visually-hidden utility clips rather than hiding', () => {
 
   const rule = css.slice(css.indexOf('.visually-hidden'), css.indexOf('}', css.indexOf('.visually-hidden')));
 
-  // display:none and visibility:hidden remove an element from the
-  // accessibility tree as well as from the screen, which would silently delete
-  // the relationship map's text equivalent for exactly the people who need it.
+  // display:none and visibility:hidden remove semantically meaningful content
+  // from the accessibility tree as well as from the screen.
   assert.ok(!/display:\s*none/.test(rule), 'display:none hides the text from screen readers too');
   assert.ok(!/visibility:\s*hidden/.test(rule), 'visibility:hidden hides the text from screen readers too');
   assert.match(rule, /clip-path:|clip:/, 'the utility must clip the element rather than hide it');
@@ -334,6 +333,9 @@ test('the shared stylesheet declares the selected purple palette', () => {
   assert.ok(contrastRatio(token('--accent-ink'), token('--brand-medium')) >= 4.5, 'button labels meet AA contrast');
   assert.ok(contrastRatio(token('--brand-medium'), surface) >= 3, 'focus and map strokes meet non-text contrast');
   assert.ok(contrastRatio(token('--border-strong'), surface) >= 3, 'interactive control boundaries meet non-text contrast');
+  assert.ok(contrastRatio(token('--map-text'), token('--map-surface')) >= 4.5, 'map text meets AA contrast on the teal canvas');
+  assert.ok(contrastRatio(token('--map-gold'), token('--map-surface')) >= 3, 'map relationship paths meet non-text contrast');
+  assert.ok(contrastRatio(token('--map-border'), token('--map-surface')) >= 3, 'map control boundaries meet non-text contrast');
 
   assert.match(css, /:focus-visible\s*\{[^}]*outline:\s*\d+px/s, 'the palette refresh must keep a visible focus ring');
   assert.match(css, /overflow-wrap:\s*break-word/, 'long names and URLs must continue to wrap');

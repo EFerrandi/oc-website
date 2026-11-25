@@ -4,8 +4,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { countCrossings, layoutGraph } from '../../src/lib/graph-layout.js';
+import { compactPositions } from '../../src/lib/compact-layout.js';
+import { countCrossings, layoutGraph, LINE_HEIGHT } from '../../src/lib/graph-layout.js';
 import { findPlanarPositions } from '../../src/lib/planar-layout.js';
+import { makeEdges, makeNodes, sparseNetwork } from '../helpers/layout-metrics.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const sourceFile = path.resolve(here, '../../src/lib/graph-layout.js');
@@ -70,6 +72,29 @@ test('relationship avatars use the enlarged radius and geometry includes their f
   }
   assert.ok(Math.hypot(a.x - b.x, a.y - b.y) > 2 * a.r, 'two avatars must not overlap');
   assert.ok(edge.labelLines.join(' ').includes(edge.label), 'wrapping must preserve the complete relationship label');
+});
+
+test('variable avatar radii are respected by bounds, spacing, and one-sided arrow endpoints', () => {
+  const inputNodes = nodes('Aria', 'Brann');
+  inputNodes[0].r = 54;
+  inputNodes[1].r = 72;
+  const inputEdges = [{ id: 1, fromId: 1, toId: 2, label: 'friends', isOneSided: true }];
+
+  const result = layoutGraph(inputNodes, inputEdges);
+  const [a, b] = result.nodes;
+  const [edge] = result.edges;
+
+  assert.equal(a.r, 54);
+  assert.equal(b.r, 72);
+  assert.ok(Math.hypot(a.x - b.x, a.y - b.y) > a.r + b.r, 'avatar faces must not overlap');
+  for (const node of result.nodes) {
+    assert.ok(node.x - node.r >= 0 && node.x + node.r <= result.width);
+    assert.ok(node.y - node.r >= 0 && node.y + node.r <= result.height);
+    assert.equal(node.imageWidth, 2 * node.r);
+    assert.equal(node.imageHeight, 2 * node.r);
+  }
+  assert.ok(Math.abs(Math.hypot(b.x - edge.pathEndX, b.y - edge.pathEndY) - 75) < 1e-8,
+    'one-sided arrow ends at the target radius plus its three-unit gap');
 });
 
 test('layoutGraph reproduces the gallery cover + object-position + zoom geometry', () => {
@@ -237,8 +262,8 @@ test('parallel routes do not cross unrelated edges in a planar drawing', () => {
       const t = index / 64;
       const inverse = 1 - t;
       points.push({
-        x: inverse ** 2 * edge.fromX + 2 * inverse * t * edge.controlX + t ** 2 * edge.pathEndX,
-        y: inverse ** 2 * edge.fromY + 2 * inverse * t * edge.controlY + t ** 2 * edge.pathEndY,
+        x: inverse ** 2 * edge.pathStartX + 2 * inverse * t * edge.controlX + t ** 2 * edge.pathEndX,
+        y: inverse ** 2 * edge.pathStartY + 2 * inverse * t * edge.controlY + t ** 2 * edge.pathEndY,
       });
     }
     return { edge, points };
@@ -360,9 +385,9 @@ test('long parallel relationship labels stay on their routes and do not overlap'
   for (const edge of result.edges) {
     const inverse = 1 - edge.labelT;
     const point = {
-      x: inverse ** 2 * edge.fromX + 2 * inverse * edge.labelT * edge.controlX
+      x: inverse ** 2 * edge.pathStartX + 2 * inverse * edge.labelT * edge.controlX
         + edge.labelT ** 2 * edge.pathEndX,
-      y: inverse ** 2 * edge.fromY + 2 * inverse * edge.labelT * edge.controlY
+      y: inverse ** 2 * edge.pathStartY + 2 * inverse * edge.labelT * edge.controlY
         + edge.labelT ** 2 * edge.pathEndY,
     };
     assert.ok(Math.hypot(edge.labelX - point.x, edge.labelY - point.y) < 0.001, `${edge.label} label is on its curve`);
@@ -547,4 +572,94 @@ test('a 100-node, 300-edge graph lays out quickly', () => {
 
   assert.equal(result.nodes.length, 100);
   assert.ok(elapsedMs < 150, `layout took ${elapsedMs.toFixed(1)}ms, over the 150ms budget`);
+});
+
+test('layoutGraph uses supplied placed positions instead of the ring or planar placement', () => {
+  const input = nodes('Aria', 'Brann', 'Cass');
+  const links = edges([1, 2], [2, 3]);
+  const placed = new Map([[1, { x: 0, y: 0 }], [2, { x: 300, y: 0 }], [3, { x: 600, y: 0 }]]);
+
+  const result = layoutGraph(input, links, { placed });
+  const [a, b, c] = result.nodes;
+
+  assert.equal(b.x - a.x, 300);
+  assert.equal(c.x - b.x, 300);
+  assert.equal(a.y, b.y);
+  assert.equal(result.crossings, 0);
+  assert.deepEqual(Object.keys(result).sort(), ['crossings', 'edges', 'height', 'nodes', 'width']);
+  for (const node of result.nodes) {
+    assert.ok(node.x - node.r >= 0 && node.x + node.r <= result.width, 'avatar inside the box');
+    assert.ok(node.nameLines.length >= 1 && Number.isFinite(node.imageX));
+  }
+  for (const edge of result.edges) {
+    assert.ok(edge.labelX > 0 && edge.labelX < result.width, 'label inside the box');
+  }
+});
+
+test('layoutGraph reports straight crossings for placed positions and ignores partial maps', () => {
+  const input = nodes('Aria', 'Brann', 'Cass', 'Dove');
+  const links = edges([1, 2], [3, 4]);
+  const crossed = new Map([
+    [1, { x: 0, y: 0 }], [2, { x: 400, y: 400 }], [3, { x: 400, y: 0 }], [4, { x: 0, y: 400 }],
+  ]);
+
+  assert.equal(layoutGraph(input, links, { placed: crossed }).crossings, 1);
+
+  const partial = new Map([[1, { x: 0, y: 0 }]]);
+  const fallback = layoutGraph(input, links, { placed: partial });
+  assert.deepEqual(fallback, layoutGraph(input, links));
+});
+
+test('layoutGraph without placed keeps the profile centre layout', () => {
+  const input = nodes('Aria', 'Brann', 'Cass');
+  const links = edges([1, 2], [1, 3]);
+
+  const result = layoutGraph(input, links, { centerId: 1 });
+  const centre = result.nodes.find((node) => node.id === 1);
+
+  assert.equal(centre.x, result.width / 2);
+  assert.equal(centre.y, result.height / 2);
+});
+
+test('placed compact layouts keep labels clear of avatars, names and other labels', () => {
+  const tree = {
+    nodes: makeNodes(30),
+    edges: makeEdges(
+      Array.from({ length: 29 }, (_, i) => [((i * 5) % (i + 1)) + 1, i + 2]),
+      (i) => ['friend', 'rival of the old guard', 'sworn sibling', 'mentor'][i % 4],
+    ),
+  };
+
+  for (const { nodes, edges } of [tree, sparseNetwork(15, 22)]) {
+    const result = layoutGraph(nodes, edges, { placed: compactPositions(nodes, edges) });
+    const labels = result.edges.map((edge) => ({
+      id: edge.id,
+      left: edge.labelX - (Math.max(...edge.labelLines.map((l) => l.length)) * 9.2) / 2,
+      right: edge.labelX + (Math.max(...edge.labelLines.map((l) => l.length)) * 9.2) / 2,
+      top: edge.labelY - (edge.labelLines.length * LINE_HEIGHT) / 2,
+      bottom: edge.labelY + (edge.labelLines.length * LINE_HEIGHT) / 2,
+    }));
+
+    for (const label of labels) {
+      for (const node of result.nodes) {
+        const nearestX = Math.max(label.left, Math.min(node.x, label.right));
+        const nearestY = Math.max(label.top, Math.min(node.y, label.bottom));
+        assert.ok(Math.hypot(nearestX - node.x, nearestY - node.y) >= node.r, `label ${label.id} covers avatar ${node.id}`);
+
+        const halfName = (Math.max(...node.nameLines.map((l) => l.length)) * 9.2) / 2;
+        const overlapsName = label.left < node.x + halfName && label.right > node.x - halfName
+          && label.top < node.y + node.r + 8 + node.nameLines.length * LINE_HEIGHT && label.bottom > node.y + node.r;
+        assert.ok(!overlapsName, `label ${label.id} covers the name of ${node.id}`);
+      }
+    }
+
+    for (let i = 0; i < labels.length; i += 1) {
+      for (let j = i + 1; j < labels.length; j += 1) {
+        const a = labels[i];
+        const b = labels[j];
+        const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+        assert.ok(apart, `labels ${a.id} and ${b.id} overlap`);
+      }
+    }
+  }
 });

@@ -75,6 +75,10 @@ function nameSpace(lines) {
   return NAME_SPACE - LINE_HEIGHT + lines * LINE_HEIGHT;
 }
 
+function nodeRadius(node) {
+  return node.r ?? NODE_RADIUS;
+}
+
 /** Perpendicular displacement applied to each additional edge of a pair. */
 const CURVE_STEP = 26;
 
@@ -90,22 +94,25 @@ const COMPONENT_GAP = 48;
  */
 function ringRadius(count, slot = 2 * NODE_RADIUS + NODE_GAP, minRadius = MIN_RADIUS) {
   if (count <= 1) return 0;
-  const circumference = count * Math.max(slot, 2 * NODE_RADIUS + NODE_GAP);
-  return Math.max(minRadius, circumference / (2 * Math.PI));
+  const chordSpacing = slot / (2 * Math.sin(Math.PI / count));
+  return Math.max(minRadius, chordSpacing);
 }
 
 /**
  * Smallest ring radius that leaves room for the widest edge label between two
  * avatar rims, so a wrapped label never lands on an avatar (FR-007).
  */
-function labelClearance(componentEdges) {
+function labelClearance(componentEdges, byId = new Map()) {
   if (componentEdges.length === 0) return MIN_RADIUS;
 
   const widest = Math.max(
     ...componentEdges.map((e) => Math.max(...wrapText(e.label, LABEL_MAX_CHARS).map((l) => l.length))),
   ) * CHAR_WIDTH;
+  const widestNode = Math.max(...componentEdges.map((edge) => (
+    nodeRadius(byId.get(edge.fromId) ?? {}) + nodeRadius(byId.get(edge.toId) ?? {})
+  )));
 
-  return Math.max(MIN_RADIUS, (2 * NODE_RADIUS + widest + 16) / 2);
+  return Math.max(MIN_RADIUS, (widestNode + widest + 16) / 2);
 }
 
 /**
@@ -153,13 +160,16 @@ function placeAroundCenter(nodeList, edgeList, centerId) {
     0,
   );
   const widestName = Math.max(...wrapText(center.name, NAME_MAX_CHARS).map((line) => line.length)) * CHAR_WIDTH;
-  const rootNameBottom = NODE_RADIUS + nameSpace(wrapText(center.name, NAME_MAX_CHARS).length);
+  const centerRadius = nodeRadius(center);
+  const maxRadius = Math.max(...nodeList.map(nodeRadius));
+  const rootNameBottom = centerRadius + nameSpace(wrapText(center.name, NAME_MAX_CHARS).length);
   const radius = Math.max(
     220,
+    centerRadius + maxRadius + NODE_GAP,
     2 * (rootNameBottom + LINE_HEIGHT / 2 + 16),
     maxLabelWidth / Math.max(separation, 0.01) + 32,
     (maxNameWidth + NODE_GAP) / (2 * Math.max(separation, 0.01)),
-    (2 * NODE_RADIUS + NODE_GAP) / (2 * Math.max(separation, 0.01)),
+    (2 * maxRadius + NODE_GAP) / (2 * Math.max(separation, 0.01)),
     widestName,
   );
 
@@ -271,8 +281,56 @@ function bezierPoint(from, control, to, t) {
   };
 }
 
+function labelBox(edge, x, y) {
+  const halfWidth = Math.max(...edge.labelLines.map((l) => l.length)) * CHAR_WIDTH / 2;
+  const halfHeight = (edge.labelLines.length * LINE_HEIGHT) / 2;
+  return { left: x - halfWidth, right: x + halfWidth, top: y - halfHeight, bottom: y + halfHeight };
+}
+
+function boxesOverlap(a, b) {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+
+function labelCoversNode(box, node) {
+  const nearestX = Math.max(box.left, Math.min(node.x, box.right));
+  const nearestY = Math.max(box.top, Math.min(node.y, box.bottom));
+  if (Math.hypot(nearestX - node.x, nearestY - node.y) < node.r) return true;
+  const halfName = Math.max(...node.nameLines.map((l) => l.length)) * CHAR_WIDTH / 2;
+  return box.left < node.x + halfName && box.right > node.x - halfName
+    && box.top < node.y + node.r + 8 + node.nameLines.length * LINE_HEIGHT && box.bottom > node.y + node.r;
+}
+
+// Labels of unrelated links can land on the same spot; slide them along their own link.
+function slideOverlappingLabels(edgeList, nodeList) {
+  const kept = [];
+  return edgeList.map((edge) => {
+    const free = (x, y) => {
+      const box = labelBox(edge, x, y);
+      return !kept.some((other) => boxesOverlap(box, other))
+        && !nodeList.some((node) => labelCoversNode(box, node));
+    };
+    let result = edge;
+    if (!free(edge.labelX, edge.labelY)) {
+      for (const t of [0.4, 0.6, 0.3, 0.7, 0.25, 0.75, 0.2, 0.8]) {
+        const point = bezierPoint(
+          { x: edge.pathStartX, y: edge.pathStartY },
+          { x: edge.controlX, y: edge.controlY },
+          { x: edge.pathEndX, y: edge.pathEndY },
+          t,
+        );
+        if (free(point.x, point.y)) {
+          result = { ...edge, labelT: t, labelX: point.x, labelY: point.y };
+          break;
+        }
+      }
+    }
+    kept.push(labelBox(result, result.labelX, result.labelY));
+    return result;
+  });
+}
 function expandForParallelLabels(nodeList, edgeList, positions, centerId) {
   const groups = new Map();
+  const byId = new Map(nodeList.map((node) => [node.id, node]));
   for (const edge of edgeList) {
     const key = edge.fromId < edge.toId
       ? `${edge.fromId}:${edge.toId}`
@@ -284,15 +342,16 @@ function expandForParallelLabels(nodeList, edgeList, positions, centerId) {
   for (const group of groups.values()) {
     if (group.length < 2) continue;
     const { fromId, toId } = group[0];
-    const distance = Math.hypot(
+    const centerDistance = Math.hypot(
       positions.get(fromId).x - positions.get(toId).x,
       positions.get(fromId).y - positions.get(toId).y,
     );
+    const distance = centerDistance - nodeRadius(byId.get(fromId)) - nodeRadius(byId.get(toId)) - 2 * ARROW_GAP;
     const labelSpan = group.reduce(
       (total, edge) => total + Math.max(...wrapText(edge.label, LABEL_MAX_CHARS).map((line) => line.length)) * CHAR_WIDTH,
       12 * (group.length - 1),
     );
-    scale = Math.max(scale, labelSpan / distance);
+    scale = Math.max(scale, labelSpan / Math.max(distance, 1));
   }
 
   if (scale === 1) return;
@@ -315,14 +374,14 @@ function expandForParallelLabels(nodeList, edgeList, positions, centerId) {
 function routeSegments(edge) {
   const steps = edge.curveOffset === 0 ? 1 : 16;
   const segments = [];
-  let previous = { x: edge.fromX, y: edge.fromY };
+  let previous = { x: edge.pathStartX, y: edge.pathStartY };
 
   for (let index = 1; index <= steps; index += 1) {
     const t = index / steps;
     const inverse = 1 - t;
     const point = {
-      x: inverse ** 2 * edge.fromX + 2 * inverse * t * edge.controlX + t ** 2 * edge.pathEndX,
-      y: inverse ** 2 * edge.fromY + 2 * inverse * t * edge.controlY + t ** 2 * edge.pathEndY,
+      x: inverse ** 2 * edge.pathStartX + 2 * inverse * t * edge.controlX + t ** 2 * edge.pathEndX,
+      y: inverse ** 2 * edge.pathStartY + 2 * inverse * t * edge.controlY + t ** 2 * edge.pathEndY,
     };
     segments.push([previous, point]);
     previous = point;
@@ -420,7 +479,7 @@ function edgeGeometry(from, to, curveOffset) {
  * Adjacency is built in a fixed order — neighbours sorted by name then id —
  * so the traversal below cannot vary between calls (FR-013).
  */
-function buildAdjacency(nodeList, edgeList) {
+export function buildAdjacency(nodeList, edgeList) {
   const byId = new Map(nodeList.map((n) => [n.id, n]));
   const adjacency = new Map(nodeList.map((n) => [n.id, []]));
 
@@ -445,7 +504,7 @@ function compareNodes(a, b) {
   return a.id - b.id;
 }
 
-function findComponents(nodeList, adjacency) {
+export function findComponents(nodeList, adjacency) {
   const seen = new Set();
   const components = [];
 
@@ -594,6 +653,32 @@ function chooseOrdering(members, inputOrdering, componentEdges, adjacency, byId)
   return best.ordering;
 }
 
+/** Crossings between straight links that share no endpoint. */
+export function countStraightCrossings(edgeList, positions) {
+  const pairs = new Set();
+  const links = [];
+  for (const edge of edgeList) {
+    if (edge.fromId === edge.toId) continue;
+    const key = edge.fromId < edge.toId ? `${edge.fromId}:${edge.toId}` : `${edge.toId}:${edge.fromId}`;
+    if (pairs.has(key)) continue;
+    pairs.add(key);
+    links.push(edge);
+  }
+
+  let crossings = 0;
+  for (let i = 0; i < links.length; i += 1) {
+    for (let j = i + 1; j < links.length; j += 1) {
+      const a = links[i];
+      const b = links[j];
+      if (a.fromId === b.fromId || a.fromId === b.toId || a.toId === b.fromId || a.toId === b.toId) continue;
+      if (segmentsCross(positions.get(a.fromId), positions.get(a.toId), positions.get(b.fromId), positions.get(b.toId))) {
+        crossings += 1;
+      }
+    }
+  }
+  return crossings;
+}
+
 /**
  * Lay out a set of characters and the relationships between them.
  *
@@ -601,7 +686,7 @@ function chooseOrdering(members, inputOrdering, componentEdges, adjacency, byId)
  * @param {Array<{id:number,fromId:number,toId:number,label:string}>} edges
  * @returns {{nodes:Array, edges:Array, width:number, height:number, crossings:number}}
  */
-export function layoutGraph(nodes, edges, { centerId = null, planarPositions = null } = {}) {
+export function layoutGraph(nodes, edges, { centerId = null, planarPositions = null, placed = null } = {}) {
   const known = new Set(nodes.map((n) => n.id));
 
   // An edge naming a character that is not on this map cannot be drawn. This
@@ -617,27 +702,35 @@ export function layoutGraph(nodes, edges, { centerId = null, planarPositions = n
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const centered = centerId !== null && byId.has(centerId)
     && drawable.every((edge) => edge.fromId === centerId || edge.toId === centerId);
-  const planar = !centered && planarPositions instanceof Map
+  const placedMode = !centered && placed instanceof Map
+    && nodes.every((node) => placed.has(node.id));
+  const planar = !centered && !placedMode && planarPositions instanceof Map
     && nodes.every((node) => planarPositions.has(node.id));
   const adjacency = buildAdjacency(nodes, drawable);
   const components = findComponents(nodes, adjacency);
 
-  const laidOut = centered || planar ? [] : components.map((members) => {
+  const laidOut = centered || planar || placedMode ? [] : components.map((members) => {
     const membership = new Set(members);
     const componentEdges = drawable.filter((e) => membership.has(e.fromId));
     const inputOrdering = nodes.filter((node) => membership.has(node.id)).map((node) => node.id);
     const ordering = chooseOrdering(members, inputOrdering, componentEdges, adjacency, byId);
     const lineCounts = members.map((id) => wrapText(byId.get(id).name, NAME_MAX_CHARS));
+    const maxNodeRadius = Math.max(...members.map((id) => nodeRadius(byId.get(id))));
     const widestName = Math.max(...lineCounts.map((lines) => Math.max(...lines.map((l) => l.length))));
     const tallestName = Math.max(...lineCounts.map((lines) => lines.length));
-    const radius = ringRadius(ordering.length, widestName * CHAR_WIDTH + 8, labelClearance(componentEdges));
+    const radius = ringRadius(
+      ordering.length,
+      Math.max(widestName * CHAR_WIDTH + 8, 2 * maxNodeRadius + NODE_GAP),
+      labelClearance(componentEdges, byId),
+    );
 
     return {
       ordering,
       radius,
+      maxNodeRadius,
       // Cell size includes the avatar radius and the room the name needs.
-      cellWidth: 2 * (radius + NODE_RADIUS) + COMPONENT_GAP,
-      cellHeight: 2 * (radius + NODE_RADIUS) + nameSpace(tallestName) + COMPONENT_GAP,
+      cellWidth: 2 * (radius + maxNodeRadius) + COMPONENT_GAP,
+      cellHeight: 2 * (radius + maxNodeRadius) + nameSpace(tallestName) + COMPONENT_GAP,
       crossings: countCrossings(componentEdges, rankOf(ordering)),
     };
   });
@@ -651,13 +744,15 @@ export function layoutGraph(nodes, edges, { centerId = null, planarPositions = n
   const columns = Math.max(1, Math.ceil(Math.sqrt(packed.length)));
   const positions = centered
     ? placeAroundCenter(nodes, drawable, centerId)
-    : planar
-      ? new Map(planarPositions)
-      : new Map();
+    : placedMode
+      ? new Map(placed)
+      : planar
+        ? new Map(planarPositions)
+        : new Map();
 
   let rowTop = 0;
 
-  for (let start = 0; !centered && !planar && start < packed.length; start += columns) {
+  for (let start = 0; !centered && !planar && !placedMode && start < packed.length; start += columns) {
     const row = packed.slice(start, start + columns);
     const rowHeight = Math.max(...row.map((c) => c.cellHeight));
 
@@ -679,13 +774,18 @@ export function layoutGraph(nodes, edges, { centerId = null, planarPositions = n
 
   expandForParallelLabels(nodes, drawable, positions, centered ? centerId : null);
 
-  const crossings = centered || planar ? 0 : laidOut.reduce((total, component) => total + component.crossings, 0);
+  const crossings = centered || planar
+    ? 0
+    : placedMode
+      ? countStraightCrossings(drawable, positions)
+      : laidOut.reduce((total, component) => total + component.crossings, 0);
 
   const placedNodes = nodes.map((node) => {
     const zoom = node.cropZoom ?? 1;
     const cropX = (node.cropX ?? 50) / 100;
     const cropY = (node.cropY ?? 50) / 100;
-    const box = 2 * NODE_RADIUS;
+    const radius = nodeRadius(node);
+    const box = 2 * radius;
 
     // Same geometry as the gallery's `object-fit: cover; object-position`
     // followed by `scale(zoom)` about the same focus point.
@@ -701,18 +801,20 @@ export function layoutGraph(nodes, edges, { centerId = null, planarPositions = n
       ...node,
       x: positions.get(node.id).x,
       y: positions.get(node.id).y,
-      r: NODE_RADIUS,
+      r: radius,
       nameLines: wrapText(node.name, NAME_MAX_CHARS),
       imageWidth: coverW * zoom,
       imageHeight: coverH * zoom,
-      imageX: -NODE_RADIUS + originX + (left - originX) * zoom,
-      imageY: -NODE_RADIUS + originY + (top - originY) * zoom,
+      imageX: -radius + originX + (left - originX) * zoom,
+      imageY: -radius + originY + (top - originY) * zoom,
     };
   });
 
   const placeEdges = (curveScale) => assignCurveOffsets(drawable, curveScale).map((edge) => {
     const from = positions.get(edge.fromId);
     const to = positions.get(edge.toId);
+    const fromRadius = nodeRadius(byId.get(edge.fromId));
+    const toRadius = nodeRadius(byId.get(edge.toId));
 
     // Canonical order for the geometry, so a relationship stored as B->A
     // bows to the same side as one stored as A->B would with that offset.
@@ -724,22 +826,42 @@ export function layoutGraph(nodes, edges, { centerId = null, planarPositions = n
     // over by the avatar; the direction is the curve's tangent at the end.
     let pathEndX = to.x;
     let pathEndY = to.y;
+    let pathStartX = from.x;
+    let pathStartY = from.y;
 
-    if (edge.isOneSided) {
+    const endDx = to.x - geometry.controlX;
+    const endDy = to.y - geometry.controlY;
+    const endLength = Math.hypot(endDx, endDy);
+    const endInset = toRadius + ARROW_GAP;
+    if (endLength > endInset) {
+      pathEndX = to.x - (endDx / endLength) * endInset;
+      pathEndY = to.y - (endDy / endLength) * endInset;
+    }
+
+    if (!edge.isOneSided) {
+      const startDx = geometry.controlX - from.x;
+      const startDy = geometry.controlY - from.y;
+      const startLength = Math.hypot(startDx, startDy);
+      const startInset = fromRadius + ARROW_GAP;
+      if (startLength > startInset) {
+        pathStartX = from.x + (startDx / startLength) * startInset;
+        pathStartY = from.y + (startDy / startLength) * startInset;
+      }
+    } else {
+      pathEndX = to.x;
+      pathEndY = to.y;
       const dx = to.x - geometry.controlX;
       const dy = to.y - geometry.controlY;
       const length = Math.hypot(dx, dy);
-      if (length > NODE_RADIUS + ARROW_GAP) {
-        pathEndX = to.x - (dx / length) * (NODE_RADIUS + ARROW_GAP);
-        pathEndY = to.y - (dy / length) * (NODE_RADIUS + ARROW_GAP);
+      if (length > endInset) {
+        pathEndX = to.x - (dx / length) * endInset;
+        pathEndY = to.y - (dy / length) * endInset;
       }
     }
-    const labelStart = forward ? from : { x: pathEndX, y: pathEndY };
-    const labelEnd = forward ? { x: pathEndX, y: pathEndY } : from;
     const labelPoint = bezierPoint(
-      labelStart,
+      { x: pathStartX, y: pathStartY },
       { x: geometry.controlX, y: geometry.controlY },
-      labelEnd,
+      { x: pathEndX, y: pathEndY },
       edge.labelT,
     );
 
@@ -748,6 +870,8 @@ export function layoutGraph(nodes, edges, { centerId = null, planarPositions = n
       labelLines: wrapText(edge.label, LABEL_MAX_CHARS),
       fromX: from.x,
       fromY: from.y,
+      pathStartX,
+      pathStartY,
       toX: to.x,
       toY: to.y,
       pathEndX,
@@ -759,16 +883,18 @@ export function layoutGraph(nodes, edges, { centerId = null, planarPositions = n
   });
   let placedEdges = placeEdges(1);
 
-  if (planar && placedEdges.some((edge) => edge.curveOffset !== 0)) {
+  if ((planar || placedMode) && placedEdges.some((edge) => edge.curveOffset !== 0)) {
     let crossing = findNonIncidentPathCrossing(placedEdges);
     for (let attempt = 0; attempt < 48 && crossing; attempt += 1) {
       placedEdges = placeEdges(2 ** -(attempt + 1));
       crossing = findNonIncidentPathCrossing(placedEdges);
     }
-    if (crossing) {
+    if (crossing && planar) {
       throw new Error(`Planar relationships ${crossing[0].id} and ${crossing[1].id} still cross after reducing parallel-edge offsets.`);
     }
   }
+
+  if (placedMode) placedEdges = slideOverlappingLabels(placedEdges, placedNodes);
 
   return { crossings, ...fitToBox(placedNodes, placedEdges, centered ? centerId : null) };
 }
@@ -825,11 +951,13 @@ function fitToBox(placedNodes, placedEdges, centerId = null) {
     nodes: placedNodes.map((node) => ({ ...node, x: node.x + shiftX, y: node.y + shiftY })),
     edges: placedEdges.map((edge) => ({
       ...edge,
+      pathStartX: edge.pathStartX + shiftX,
       fromX: edge.fromX + shiftX,
       toX: edge.toX + shiftX,
       pathEndX: edge.pathEndX + shiftX,
       controlX: edge.controlX + shiftX,
       labelX: edge.labelX + shiftX,
+      pathStartY: edge.pathStartY + shiftY,
       fromY: edge.fromY + shiftY,
       toY: edge.toY + shiftY,
       pathEndY: edge.pathEndY + shiftY,

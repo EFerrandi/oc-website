@@ -24,7 +24,7 @@ function sfwMap(html) {
   return next === -1 ? html.slice(start) : html.slice(start, next);
 }
 
-test('one-sided edges carry an arrowhead and two-sided edges do not', async (t) => {
+test('one-sided edges carry an arrowhead and mutual edges carry arrows in both directions', async (t) => {
   const { app, db, ids } = setup(t);
   insert(db, ids, ids.brann, ids.aria, 'admires', 1);
 
@@ -38,18 +38,22 @@ test('one-sided edges carry an arrowhead and two-sided edges do not', async (t) 
   assert.equal(two.length, 1);
   assert.match(one[0], /data-one-sided="1"/);
   assert.match(one[0], /marker-end="url\(#map-sfw-arrow\)"/);
+  assert.ok(!/marker-start/.test(one[0]));
   assert.ok(!/data-one-sided/.test(two[0]));
-  assert.ok(!/marker-end/.test(two[0]));
+  assert.match(two[0], /marker-start="url\(#map-sfw-arrow\)"/);
+  assert.match(two[0], /marker-end="url\(#map-sfw-arrow\)"/);
 });
 
-test('the text equivalent states direction for one-sided relationships only', async (t) => {
+test('the visible relationship details state direction for one-sided relationships', async (t) => {
   const { app, db, ids } = setup(t);
   insert(db, ids, ids.brann, ids.aria, 'admires', 1);
 
   const html = sfwMap((await request(app).get('/relationships')).text);
 
-  assert.match(html, /Brann → admires → Aria/);
-  assert.match(html, /Aria — childhood friends — Brann/);
+  const details = [...html.matchAll(/<li id="map-sfw-relationship-\d+"[^>]*>([\s\S]*?)<\/li>/g)]
+    .map(([, text]) => text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '));
+  assert.ok(details.includes(' Brann → admires → Aria '));
+  assert.ok(details.includes(' Aria — childhood friends — Brann '));
 });
 
 test('the character page states sidedness and direction', async (t) => {

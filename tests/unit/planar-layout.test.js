@@ -86,6 +86,28 @@ test('findPlanarPositions preserves application IDs and scales non-overlapping n
   }
 });
 
+test('findPlanarPositions keeps mixed-size avatars separated', () => {
+  const nodes = [
+    { id: 1, name: 'Large', r: 78 },
+    { id: 2, name: 'Small', r: 48 },
+    { id: 3, name: 'Medium', r: 60 },
+    { id: 4, name: 'Other', r: 54 },
+  ];
+  const edges = [[1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]]
+    .map(([fromId, toId], index) => ({ id: index + 1, fromId, toId }));
+
+  const positions = findPlanarPositions(nodes, edges);
+
+  assert.ok(positions);
+  for (let i = 0; i < nodes.length; i += 1) {
+    for (let j = i + 1; j < nodes.length; j += 1) {
+      const a = positions.get(nodes[i].id);
+      const b = positions.get(nodes[j].id);
+      assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= nodes[i].r + nodes[j].r + 240);
+    }
+  }
+});
+
 test('findPlanarPositions returns null for a non-planar graph', () => {
   const nodes = Array.from({ length: 6 }, (_, index) => ({ id: index + 1, name: `N${index}` }));
   const edges = [

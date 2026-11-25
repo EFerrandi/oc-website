@@ -83,9 +83,10 @@ export function findPlanarPositions(nodes, edges) {
     }
   }
 
-  const spacing = 2 * NODE_RADIUS + NODE_GAP;
+  const maxRadius = Math.max(...nodes.map((node) => node.r ?? NODE_RADIUS));
+  const spacing = 2 * maxRadius + NODE_GAP;
   const rightEdge = positioned.length
-    ? Math.max(...positioned.map((node) => rawPositions.get(node.id).x))
+    ? Math.max(...positioned.map((node) => rawPositions.get(node.id).x + (node.r ?? NODE_RADIUS)))
     : 0;
   const topEdge = positioned.length
     ? Math.min(...positioned.map((node) => rawPositions.get(node.id).y))
@@ -111,7 +112,7 @@ export function findPlanarPositions(nodes, edges) {
     }
   }
 
-  let minimumDistance = Infinity;
+  let scale = 1;
   for (let i = 0; i < nodes.length; i += 1) {
     const a = rawPositions.get(nodes[i].id);
     if (!Number.isFinite(a?.x) || !Number.isFinite(a?.y)) {
@@ -120,15 +121,15 @@ export function findPlanarPositions(nodes, edges) {
 
     for (let j = i + 1; j < nodes.length; j += 1) {
       const b = rawPositions.get(nodes[j].id);
-      minimumDistance = Math.min(minimumDistance, Math.hypot(a.x - b.x, a.y - b.y));
+      const minimumDistance = Math.hypot(a.x - b.x, a.y - b.y);
+      if (minimumDistance <= 0) {
+        throw new Error('Planar layout placed distinct characters at the same coordinates.');
+      }
+      const requiredDistance = (nodes[i].r ?? NODE_RADIUS) + (nodes[j].r ?? NODE_RADIUS) + NODE_GAP;
+      scale = Math.max(scale, requiredDistance / minimumDistance);
     }
   }
 
-  if (minimumDistance <= 0) {
-    throw new Error('Planar layout placed distinct characters at the same coordinates.');
-  }
-
-  const scale = Math.max(1, (2 * NODE_RADIUS + NODE_GAP) / minimumDistance);
   const centerX = nodes.reduce((sum, node) => sum + rawPositions.get(node.id).x, 0) / nodes.length;
   const centerY = nodes.reduce((sum, node) => sum + rawPositions.get(node.id).y, 0) / nodes.length;
 

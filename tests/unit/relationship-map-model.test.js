@@ -55,3 +55,45 @@ test('buildMapModel adds the profile character before its directly related nodes
   assert.deepEqual(result.nodes.map(({ id }) => id), [1, 2]);
   assert.equal(result.edges.length, 1);
 });
+
+test('buildMapModel counts distinct visible neighbors, not relationship records', () => {
+  const aria = character(1, 'Aria');
+  const brann = character(2, 'Brann');
+  const cass = character(3, 'Cass');
+  const rows = [
+    { id: 11, from: aria, to: brann, label: 'friends', isOneSided: false },
+    { id: 12, from: brann, to: aria, label: 'colleagues', isOneSided: true },
+    { id: 13, from: aria, to: cass, label: 'siblings', isOneSided: false },
+    { id: 14, from: aria, to: aria, label: 'self', isOneSided: true },
+  ];
+
+  const result = buildMapModel(rows);
+
+  assert.deepEqual(result.nodes.map(({ id, visibleNeighborCount, r }) => [id, visibleNeighborCount, r]), [
+    [1, 2, 64 + 4 * Math.sqrt(2)],
+    [2, 1, 68],
+    [3, 1, 68],
+  ]);
+  assert.equal(result.edges.length, rows.length, 'all visible relationship records remain represented');
+});
+
+test('buildMapModel keeps bounded avatar radii strictly increasing beyond the cap boundary', () => {
+  const hub = character(1, 'Hub');
+  const neighbors = Array.from({ length: 110 }, (_, index) => character(index + 2, `Neighbor ${index + 1}`));
+  const rows = neighbors.map((neighbor, index) => ({
+    id: index + 1,
+    from: hub,
+    to: neighbor,
+    label: 'connected',
+    isOneSided: false,
+  }));
+  const result = buildMapModel(rows);
+  const radii = result.nodes.map(({ r }) => r);
+  const hubRadii = [99, 100, 101, 110].map((count) => buildMapModel(rows.slice(0, count)).nodes[0].r);
+
+  assert.ok(radii.every((radius) => radius <= 104), 'avatar radii remain bounded at the configured maximum');
+  assert.ok(
+    hubRadii.every((radius, index) => index === 0 || radius > hubRadii[index - 1]),
+    'each increase in distinct neighbors produces a strictly larger radius across and beyond the cap',
+  );
+});

@@ -31,7 +31,7 @@ const profile = (app, { nsfw = false } = {}) => {
   return nsfw ? req.set('Cookie', NSFW_ON) : req;
 };
 
-test('the profile relationship diagram is server-rendered with centered links and a text equivalent', async (t) => {
+test('the profile relationship diagram is server-rendered with a centered avatar and readable details', async (t) => {
   const { app, ids } = withApp(t);
   const html = (await profile(app)).text;
   const sectionStart = html.indexOf('class="profile-relationships"');
@@ -44,7 +44,8 @@ test('the profile relationship diagram is server-rendered with centered links an
   assert.equal([...section.matchAll(/class="map-node(?:\\s|")/g)].length, 2, 'only Aria and her visible connection are nodes');
   assert.equal([...section.matchAll(/class="map-edge"/g)].length, 1, 'the SFW relationship is drawn');
   assert.ok(section.includes('childhood friends'), 'the relationship label is visible');
-  assert.ok(section.includes('map-text-equivalent'), 'the diagram has a server-rendered text equivalent');
+  assert.ok(section.includes('map-details'), 'the diagram has a server-rendered relationship detail list');
+  assert.ok(section.includes('id="map-profile-relationship-1"'), 'the drawn relationship links to its full details');
   assert.match(section, new RegExp(`/media/${ids.imageSfwA}`), 'the center avatar uses the gated preview URL');
 });
 
